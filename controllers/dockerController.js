@@ -139,6 +139,44 @@ exports.bashInContainer = async(container) => {
 };
 
 /**
+ * containerLogs
+ * @param {*} container 
+ */
+exports.containerLogs = async(container, stdIn, stdOut) => {
+    return this.dockerCommand([
+        "logs",
+        container['container id']
+    ], stdIn, stdOut);
+};
+
+/**
+ * inspectContainer
+ * @param {*} container 
+ * @param {*} target 
+ * @param {*} stdIn 
+ * @param {*} stdOut 
+ */
+exports.inspectContainer = async(container, target, stdIn, stdOut) => {
+    let params = ["inspect"];
+    if (target == "network") {
+        params.push("--format='" +
+            "IP: {{range $p, $conf := .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" +
+            ", Hostname: {{.Config.Hostname}}" +
+            ", Ports: {{range $p, $conf := .NetworkSettings.Ports}} {{$p}} -> Host port {{(index $conf 0).HostPort}} {{end}}" +
+            "'"
+        );
+    } else if (target == "image") {
+        params.push("--format='{{.Config.Image}}'");
+    } else if (target == "bindings") {
+        params.push("--format='{{.HostConfig.Binds}}'");
+    } else if (target == "volumes") {
+        params.push("--format='{{.Config.Volumes}}'");
+    }
+    params.push(container['container id']);
+    return this.dockerCommand(params, stdIn, stdOut);
+};
+
+/**
  * execInContainer
  * @param {*} container 
  * @param {*} command 

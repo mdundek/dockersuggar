@@ -643,6 +643,53 @@ module.exports = {
         }
     },
     /**
+     * inspectContainer
+     */
+    inspectContainer: async(target) => {
+        let containers = await dockerController.listContainers();
+        containers = containers.filter(c => c.up);
+        if (containers.length == 0) {
+            console.log(chalk.grey("There are no running containers"));
+            return;
+        }
+
+        displayAvailableContainers(containers, true);
+
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Container number to inspect:',
+            validate: (index) => {
+                if (validateIndexResponse(containers, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let indexData = await prompt(questions);
+        let bashContainer = containers[parseInt(indexData.index) - 1];
+        await dockerController.inspectContainer(bashContainer, target,
+            (stdOut) => {
+                if (target == "network") {
+                    console.log("Network: " + chalk.cyan(stdOut.replace(/\'/g, "").replace("/tcp", "")));
+                } else if (target == "image") {
+                    console.log("Image: " + chalk.cyan(stdOut.replace(/\'/g, "")));
+                } else if (target == "bindings") {
+                    console.log("Bindings: " + chalk.cyan(stdOut.replace(/\'/g, "")));
+                } else if (target == "volumes") {
+                    console.log("Volumes: " + chalk.cyan(stdOut.replace(/\'/g, "")));
+                } else {
+                    console.log(stdOut);
+                }
+            },
+            (stdErr) => {
+                console.log(stdErr);
+            });
+        console.log(chalk.grey("Done"));
+    },
+    /**
      * bashInContainer
      */
     bashInContainer: async() => {
@@ -671,6 +718,42 @@ module.exports = {
         let indexData = await prompt(questions);
         let bashContainer = containers[parseInt(indexData.index) - 1];
         await dockerController.bashInContainer(bashContainer);
+        console.log(chalk.grey("Done"));
+    },
+    /**
+     * containerLogs
+     */
+    containerLogs: async() => {
+        let containers = await dockerController.listContainers();
+        if (containers.length == 0) {
+            console.log(chalk.grey("There are no containers"));
+            return;
+        }
+
+        displayAvailableContainers(containers, true);
+
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Container number to get the logs for:',
+            validate: (index) => {
+                if (validateIndexResponse(containers, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let indexData = await prompt(questions);
+        let bashContainer = containers[parseInt(indexData.index) - 1];
+        await dockerController.containerLogs(bashContainer,
+            (stdOut) => {
+                console.log(stdOut);
+            },
+            (stdErr) => {
+                console.log(stdErr);
+            });
         console.log(chalk.grey("Done"));
     },
     /**

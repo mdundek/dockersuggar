@@ -159,6 +159,36 @@ var chalk = require("chalk");
                 })();
             });
 
+        let inspectParameters = ["network", "image", "bindings", "volumes", "raw"];
+        program
+            .command('inspect <' + inspectParameters.join("|") + '>')
+            .alias('i')
+            .description('Get container specific information')
+            .action((target) => {
+                cmdValue = "inspect";
+                (async() => {
+                    target = target.toLowerCase();
+                    if (inspectParameters.indexOf(target) == -1) {
+                        console.log(chalk.red("Invalide inspect target: "), target);
+                    } else {
+                        console.log("");
+                        await promptController.inspectContainer(target);
+                    }
+                })();
+            });
+
+        program
+            .command('logs')
+            .alias('l')
+            .description('Display logs for conainer')
+            .action(() => {
+                cmdValue = "logs";
+                (async() => {
+                    console.log("");
+                    await promptController.containerLogs();
+                })();
+            });
+
         program
             .command('bash')
             .alias('b')
@@ -205,3 +235,13 @@ var chalk = require("chalk");
         console.log(chalk.red("ERROR: "), err.message);
     }
 })();
+
+/** Manage docker run profiles
+ * 
+ * Ex. dockersuggar run [profilename] <container name>
+ * Add command to save last image/tag settings as run profile
+ */
+
+/** Docker tag / push save last used settings 
+ * 
+ */
