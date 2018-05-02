@@ -635,7 +635,17 @@ module.exports = {
         );
         // If success
         if (code == 0) {
-            console.log("\n" + chalk.grey("Done"));
+            let containers = await dockerController.listContainers();
+            let rc = containers.find(c => c.names == runImageData.name);
+            dockerController.inspectContainer(rc, "network",
+                (stdOut) => {
+                    console.log(chalk.cyan("Container network settings: "), stdOut);
+                    console.log("\n" + chalk.grey("Done"));
+                },
+                (stdErr) => {
+                    console.log("\n" + chalk.grey("Done"));
+                }
+            );
         }
         // On error
         else {

@@ -246,3 +246,8 @@ var figlet = require('figlet');
 /** Docker tag / push save last used settings 
  * 
  */
+
+/** Dockerfile snippet helper
+ * Provide tools to add common snipets to your dockerfile
+ * Ex. Add Nodejs, Add GIT, Add Python...
+ */

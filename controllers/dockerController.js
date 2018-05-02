@@ -162,7 +162,7 @@ exports.inspectContainer = async(container, target, stdIn, stdOut) => {
         params.push("--format='" +
             "IP: {{range $p, $conf := .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" +
             ", Hostname: {{.Config.Hostname}}" +
-            ", Ports: {{range $p, $conf := .NetworkSettings.Ports}} {{$p}} -> Host port {{(index $conf 0).HostPort}} {{end}}" +
+            ", Ports: {{range $p, $conf := .NetworkSettings.Ports}} {{$p}} -> Host Mapping {{($conf)}} {{end}}" +
             "'"
         );
     } else if (target == "image") {
