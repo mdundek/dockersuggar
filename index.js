@@ -3,14 +3,15 @@
 const promptController = require("./controllers/promptController");
 const program = require('commander');
 var chalk = require("chalk");
+var figlet = require('figlet');
 
 (async() => {
     try {
         await promptController.init();
 
         program
-            .version('0.0.1')
-            .description('Docker suggar')
+            .version('0.0.2')
+            .description("\n" + figlet.textSync('DockerSuggar'))
 
         let cmdValue = null;
 
