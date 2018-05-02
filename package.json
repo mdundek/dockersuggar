@@ -1,0 +1,32 @@
+{
+    "name": "dockersuggar",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "preferGlobal": true,
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mdundek/dockersuggar.git"
+    },
+    "scripts": {
+        "start": "node .",
+        "test": "TEST='true' jest --runInBand"
+    },
+    "author": "mdundek",
+    "license": "MIT",
+    "bin": {
+        "dockersuggar": "./bin/docker-suggar.js"
+    },
+    "dependencies": {
+        "chalk": "^2.4.1",
+        "commander": "^2.15.1",
+        "docker-cli-js": "^2.2.0",
+        "inquirer": "^5.2.0",
+        "nedb": "^1.8.0",
+        "pty.js": "^0.3.1",
+        "validator": "^9.4.1"
+    },
+    "devDependencies": {
+        "jest": "^22.4.3"
+    }
+}

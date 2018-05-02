@@ -1,0 +1,4 @@
+{"repository":"mysql","tag":"5.7.13","settings":{"name":"FooDevMysql","remove":true,"bgMode":true,"ports":{"3306":"4444"},"volumes":{"/bin/data":"./mysql/fooData"},"env":{"MYSQL_ROOT_PASSWORD":"toto"}},"_id":"bBYXRRZQ7omcwHsZ"}
+{"repository":"debian-test","tag":"1.0.0","settings":{"name":"zzz","remove":true,"bgMode":false,"shell":true,"shellType":"/bin/bash","ports":{"7655":"7655","8080":"8080"},"volumes":{},"env":{}},"_id":"mO8pdUXPAcocMJMJ"}
+{"repository":"mysql","settings":{"name":"zzz","remove":true,"bgMode":false,"shell":true,"shellType":"/bin/bash","ports":{"9999":"9877"},"volumes":{},"env":{"MYSQL_ROOT_PASSWORD":"pw"}},"_id":"nV9JKEMeAB4l7gsH"}
+{"repository":"debian-test","settings":{"name":"zzz","remove":true,"bgMode":false,"shell":true,"shellType":"/bin/bash","ports":{"7655":"7655","8080":"8080"},"volumes":{"/mosquitto":"/Users/michaeldundek/workspaces/md/DockerManager/ooo"},"env":{"DOCKER":"test"}},"_id":"vpxUTYrUOVRlagWw"}
