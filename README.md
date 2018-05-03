@@ -30,7 +30,52 @@ npm install -g dockersuggar
 ```
 
 Once instralled, you can use it with the commandline command `dockersuggar`.  
+  
+To get the list of available commands, use:
 
+```
+dockersuggar -h
+```
+
+This outputs:
+
+```
+ Usage: dockersuggar [options] [command]
+
+
+  ____             _             ____
+ |  _ \  ___   ___| | _____ _ __/ ___| _   _  __ _  __ _  __ _ _ __
+ | | | |/ _ \ / __| |/ / _ \ '__\___ \| | | |/ _` |/ _` |/ _` | '__|
+ | |_| | (_) | (__|   <  __/ |   ___) | |_| | (_| | (_| | (_| | |
+ |____/ \___/ \___|_|\_\___|_|  |____/ \__,_|\__, |\__, |\__,_|_|
+                                             |___/ |___/
+
+  Options:
+
+    -V, --version                                   output the version number
+    -h, --help                                      output usage information
+
+  Commands:
+
+    dockerfiles|df                                  List local Dockerfiles
+    new|n                                           Create a new Dockerfile
+    editDockerfile|ed                               Edit dockerfile with default editor
+    build|b                                         Build a docker image
+    images|i                                        List docker images
+    describe                                        Describe an image such as ports, volumes and environement variables
+    tag|t                                           Tag a docker image for a repository
+    push|p                                          Push a docker image to repository
+    deleteImage|di                                  Delete a docker image
+    run|r                                           Run container from image
+    containers|c                                    List containers
+    startContainer|startc                           Start a docker container
+    stopContainer|stopc                             Stop running docker container
+    deleteContainer|dc                              Delete a docker container
+    inspect|i <network|image|bindings|volumes|raw>  Get container specific information
+    logs|l                                          Display logs for conainer
+    bash|b                                          Bash terminal into running conainer
+    exec|e                                          Execute command on running conainer
+```
 
 Some commands just output the required data.  
 Example - List all containers on this machine:
@@ -114,12 +159,6 @@ drwxr-xr-x   1 root root 4096 May  1  2017 var
 root@f09078f5c255:/#
 
 ...
-```
-
-To get the list of available commands, use:
-
-```
-dockersuggar -h
 ```
 
 
