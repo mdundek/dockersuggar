@@ -1,9 +1,21 @@
 {
-    "name": "dockersuggar",
-    "version": "0.0.6",
-    "description": "",
+    "name": "docker-suggar",
+    "version": "0.0.7",
+    "description": "A CLI designed to simplify and automate your Docker commands",
+    "keywords": [
+        "cli",
+        "docker",
+        "automate",
+        "wrapper",
+        "tool"
+    ],
+    "bugs": {
+        "url": "https://github.com/mdundek/dockersuggar/issues",
+        "email": "mdundek.tech@gmail.com"
+    },
     "main": "index.js",
     "preferGlobal": true,
+    "homepage": "https://github.com/mdundek/dockersuggar#readme",
     "repository": {
         "type": "git",
         "url": "https://github.com/mdundek/dockersuggar.git"
