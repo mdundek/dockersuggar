@@ -156,19 +156,25 @@ module.exports = {
         const questions = [{
             type: 'input',
             name: 'index',
-            message: 'Container index to delete:',
+            message: "Container index to delete (ex: 1 or 1,3'):",
             validate: (index) => {
-                if (validateIndexResponse(containers, index)) {
-                    return true;
-                } else {
-                    return "Invalide index";
-                }
+                let valide = true;
+                index.split(",").forEach(i => {
+                    if (!validateIndexResponse(containers, i.trim())) {
+                        valide = "Invalide index";
+                    }
+                });
+                return valide;
             }
         }];
 
         let delContainerData = await prompt(questions);
-        let deleteContainer = images[parseInt(delContainerData.index) - 1];
-        await dockerController.deleteContainer(deleteContainer);
+        let indexes = delContainerData.index.split(",");
+        for (let i = 0; i < indexes.length; i++) {
+            let deleteContainer = containers[parseInt(indexes[i].trim()) - 1];
+            await dockerController.deleteContainer(deleteContainer);
+        }
+
         console.log(chalk.grey("Done"));
     },
     /**
@@ -479,21 +485,58 @@ module.exports = {
         let runImageIndex = await prompt(questions);
 
         let sImage = images[parseInt(runImageIndex.index) - 1];
-        let previousSettings = await dataController.lookupImageRunConfig(sImage);
-        let previousConfig = await dataController.lookupImageConfig(sImage);
-        if (previousConfig && previousConfig.config.doc) {
-            console.log("");
-            console.log("Info: " + chalk.grey(previousConfig.config.doc));
+        let previousRunSettings = await dataController.lookupImageRunConfig(sImage);
+        let imageConfig = await dataController.lookupImageConfig(sImage);
+        if (imageConfig && imageConfig.config) {
+            console.log("---------------------- Image documentation ----------------------");
+
+            if (imageConfig.config.description.trim().length > 0) {
+                console.log("");
+                console.log(chalk.yellow("Description:"));
+                console.log(imageConfig.config.description);
+            }
+            let ports = Object.keys(imageConfig.config.ports);
+            let volumes = Object.keys(imageConfig.config.volumes);
+            let envs = Object.keys(imageConfig.config.env);
+            if (ports.length > 0) {
+                console.log("");
+                console.log(chalk.yellow("Exposed ports:"));
+                ports.forEach((port) => {
+                    console.log(chalk.grey(port) + " (" + imageConfig.config.ports[port] + ")");
+                });
+            }
+            if (volumes.length > 0) {
+                console.log("");
+                console.log(chalk.yellow("Volumes:"));
+                volumes.forEach((volume) => {
+                    console.log(chalk.grey(volume) + " (" + imageConfig.config.volumes[volume] + ")");
+                });
+            }
+            if (envs.length > 0) {
+                console.log("");
+                console.log(chalk.yellow("Environement variables:"));
+                envs.forEach((env) => {
+                    console.log(chalk.grey(env) + " (" + imageConfig.config.env[env] + ")");
+                });
+            }
+            console.log("-----------------------------------------------------------------");
             console.log("");
         }
 
+        let existingContainers = await dockerController.listContainers();
         // ************ PROMPT: Init detailed questions params ************
         questions = [{
             type: 'input',
             name: 'name',
             message: 'Container name:',
             validate: (res) => {
-                return res.trim().length == 0 ? "Mandatory field" : true
+                let valide = true;
+                if (res.trim().length == 0) {
+                    valide = "Mandatory field";
+                } else if (existingContainers.find(c => c.names.toLowerCase() == res.toLowerCase()) != null) {
+                    valide = "Container name already in use";
+                }
+                return valide;
             }
         }, {
             type: 'confirm',
@@ -507,9 +550,9 @@ module.exports = {
             default: true
         }];
         // Populate default values for those params if a previous run has been found
-        if (previousSettings) {
+        if (previousRunSettings) {
             questions = questions.map((s) => {
-                s.default = previousSettings.settings[s.name];
+                s.default = previousRunSettings.settings[s.name];
                 return s;
             });
         }
@@ -525,8 +568,8 @@ module.exports = {
                 default: false
             }];
             // Populate default values for those params if a previous run has been found
-            if (previousSettings && previousSettings.settings.shell) {
-                questions[0].default = previousSettings.settings.shell;
+            if (previousRunSettings && previousRunSettings.settings.shell) {
+                questions[0].default = previousRunSettings.settings.shell;
             }
 
             // Prompt user with questions
@@ -546,8 +589,8 @@ module.exports = {
                     default: "/bin/bash"
                 }];
                 // Populate default values for those params if a previous run has been found
-                if (previousSettings && previousSettings.settings.shellType) {
-                    questions[0].default = previousSettings.settings.shellType;
+                if (previousRunSettings && previousRunSettings.settings.shellType) {
+                    questions[0].default = previousRunSettings.settings.shellType;
                 }
                 // Prompt user with questions
                 let shellTypeQuestionResponse = await prompt(questions);
@@ -560,8 +603,8 @@ module.exports = {
                     message: 'Optional container command parameters:'
                 }];
                 // Populate default values for those params if a previous run has been found
-                if (previousSettings && previousSettings.settings.cmd && previousSettings.settings.cmd.length > 0) {
-                    questions[0].default = previousSettings.settings.cmd;
+                if (previousRunSettings && previousRunSettings.settings.cmd && previousRunSettings.settings.cmd.length > 0) {
+                    questions[0].default = previousRunSettings.settings.cmd;
                 }
                 // Prompt user with questions
                 let cmdQuestionResponse = await prompt(questions);
@@ -571,8 +614,8 @@ module.exports = {
 
         // ************ PROMPT: Ports ************
         let pSettings = {};
-        if (previousSettings && previousSettings.settings.ports && Object.keys(previousSettings.settings.ports).length > 0) {
-            pSettings = previousSettings.settings.ports;
+        if (previousRunSettings && previousRunSettings.settings.ports && Object.keys(previousRunSettings.settings.ports).length > 0) {
+            pSettings = previousRunSettings.settings.ports;
         } else {
             // Get exposed ports from Dockerfile
             let ports = dataController.extractExposedPorts(sImage);
@@ -592,8 +635,8 @@ module.exports = {
 
         // ************ PROMPT: Volumes ************
         let vSettings = {};
-        if (previousSettings && previousSettings.settings.volumes && Object.keys(previousSettings.settings.volumes).length > 0) {
-            vSettings = previousSettings.settings.volumes;
+        if (previousRunSettings && previousRunSettings.settings.volumes && Object.keys(previousRunSettings.settings.volumes).length > 0) {
+            vSettings = previousRunSettings.settings.volumes;
         } else {
             // Get exposed volumes from Dockerfile
             let volumes = dataController.extractDockerfileVolumes(sImage);
@@ -616,7 +659,7 @@ module.exports = {
             "intro": "Environement variables",
             "key": "Environement variable name",
             "value": "Environement variable value"
-        }, previousSettings && previousSettings.settings.env ? previousSettings.settings.env : null);
+        }, previousRunSettings && previousRunSettings.settings.env ? previousRunSettings.settings.env : null);
         runImageData.env = envResult;
 
         // Save user selected params for this image for next run
@@ -637,18 +680,22 @@ module.exports = {
         if (code == 0) {
             let containers = await dockerController.listContainers();
             let rc = containers.find(c => c.names == runImageData.name);
-            dockerController.inspectContainer(rc, "network",
-                (stdOut) => {
-                    console.log(chalk.cyan("Container network settings: "), stdOut);
-                    console.log("\n" + chalk.grey("Done"));
-                },
-                (stdErr) => {
-                    console.log("\n" + chalk.grey("Done"));
-                }
-            );
+            if (rc) {
+                let data = await dockerController.inspectContainer(rc, "network");
+                console.log("");
+                displayInspectData("network", data);
+
+                data = await dockerController.inspectContainer(rc, "bindings");
+                displayInspectData("bindings", data);
+
+                data = await dockerController.inspectContainer(rc, "volumes");
+                displayInspectData("volumes", data);
+            }
+            console.log(chalk.grey("\nDone"));
         }
         // On error
         else {
+            delete
             console.log("\n" + chalk.red("An error occured"));
         }
     },
@@ -680,24 +727,9 @@ module.exports = {
 
         let indexData = await prompt(questions);
         let bashContainer = containers[parseInt(indexData.index) - 1];
-        await dockerController.inspectContainer(bashContainer, target,
-            (stdOut) => {
-                if (target == "network") {
-                    console.log("Network: " + chalk.cyan(stdOut.replace(/\'/g, "").replace("/tcp", "")));
-                } else if (target == "image") {
-                    console.log("Image: " + chalk.cyan(stdOut.replace(/\'/g, "")));
-                } else if (target == "bindings") {
-                    console.log("Bindings: " + chalk.cyan(stdOut.replace(/\'/g, "")));
-                } else if (target == "volumes") {
-                    console.log("Volumes: " + chalk.cyan(stdOut.replace(/\'/g, "")));
-                } else {
-                    console.log(stdOut);
-                }
-            },
-            (stdErr) => {
-                console.log(stdErr);
-            });
-        console.log(chalk.grey("Done"));
+        let data = await dockerController.inspectContainer(bashContainer, target);
+
+        displayInspectData(target, data);
     },
     /**
      * bashInContainer
@@ -829,38 +861,52 @@ module.exports = {
         }];
 
         let docImageIndex = await prompt(questions);
-
         let sImage = images[parseInt(docImageIndex.index) - 1];
 
         let previousConfig = await dataController.lookupImageConfig(sImage);
-
-        console.log("");
-        console.log(chalk.grey("The intent of the documentation is to provide important information on a specific image, such as what volumes it uses, what ports are exposed and what environement variables you can overwrite."));
-
-        if (previousConfig && previousConfig.config.doc) {
-            console.log("");
-            console.log("Previous text: " + chalk.yellow(previousConfig.config.doc));
-
+        if (!previousConfig) {
+            previousConfig = {
+                "repository": sImage.repository,
+                "tag": sImage.tag,
+                "config": {}
+            };
         }
-        console.log("");
 
         questions = [{
             type: 'input',
-            name: 'doc',
-            message: 'Text:'
+            name: 'description',
+            message: 'Short description:',
+            default: previousConfig.config.description ? previousConfig.config.description : null
         }];
 
-        let docData = await prompt(questions);
+        console.log("");
 
-        if (previousConfig) {
-            previousConfig.config.doc = docData.doc;
-        } else {
-            previousConfig = {
-                config: {
-                    doc: docData.doc
-                }
-            };
-        }
+        let description = await prompt(questions);
+
+        previousConfig.config.description = description.description;
+
+        let portResult = await promptForRepetingValues({
+            "intro": "Port mapping",
+            "key": "Container port",
+            "value": "Details"
+        }, previousConfig.config.ports ? previousConfig.config.ports : {}, " => ", false);
+
+        let volumeResult = await promptForRepetingValues({
+            "intro": "Volume mapping",
+            "key": "Container volume path",
+            "value": "Details"
+        }, previousConfig.config.volumes ? previousConfig.config.volumes : {}, " => ", false);
+
+        let envResult = await promptForRepetingValues({
+            "intro": "Environement variables",
+            "key": "Variable name",
+            "value": "Description"
+        }, previousConfig.config.env ? previousConfig.config.env : {}, " => ", false);
+
+        previousConfig.config.ports = portResult;
+        previousConfig.config.volumes = volumeResult;
+        previousConfig.config.env = envResult;
+
         await dataController.saveImageConfig(sImage, previousConfig.config);
 
         console.log("\n" + chalk.grey("Done"));
@@ -917,7 +963,7 @@ let promptForRepetingValues = async(labels, existingList, separator, invert) => 
                         }, {
                             type: 'input',
                             name: 'value',
-                            message: labels.key,
+                            message: labels.value,
                             validate: (res) => {
                                 return res.trim().length == 0 ? "Mandatory field" : true
                             }
@@ -1083,6 +1129,45 @@ let displayAvailableDockerFiles = (dockers, numbered) => {
             (numbered ? ((i + 1) + ": ") : "") + chalk.magenta(d.repository) + chalk.yellow(" (" + d.tag + ")")
         );
     });
+}
+
+/**
+ * displayInspectData
+ * @param {*} target 
+ * @param {*} data 
+ */
+let displayInspectData = (target, data) => {
+    if (target == "network") {
+        console.log("CONTAINER HOSTNAME: " + chalk.cyan(data.Hostname));
+        console.log("CONTAINER IP: " + chalk.cyan(data.IPAddress));
+        for (let p in data.Ports) {
+            console.log(
+                "PORT: " +
+                chalk.cyan(p) +
+                " => " +
+                (data.Ports[p] ?
+                    "Host mapping " + chalk.cyan(data.Ports[p].map(l => l.HostIp + ":" + l.HostPort).join(", ")) :
+                    "No host mappings")
+            );
+        }
+    } else if (target == "image") {
+        console.log("IMAGE: " + chalk.cyan(data));
+    } else if (target == "bindings") {
+        if (data) {
+            data = data.map(d => d.split(":"));
+            data.forEach(d => {
+                console.log("BINDING: " + chalk.cyan(d[1]) + " => Host folder " + chalk.cyan(d[0]));
+            });
+        } else {
+            console.log("BINDINGS: " + chalk.cyan("none"));
+        }
+    } else if (target == "volumes") {
+        for (let v in data) {
+            console.log("VOLUME: " + chalk.cyan(v));
+        }
+    } else {
+        console.log(data);
+    }
 }
 
 /**

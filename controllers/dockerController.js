@@ -156,24 +156,21 @@ exports.containerLogs = async(container, stdIn, stdOut) => {
  * @param {*} stdIn 
  * @param {*} stdOut 
  */
-exports.inspectContainer = async(container, target, stdIn, stdOut) => {
-    let params = ["inspect"];
+exports.inspectContainer = async(container, target) => {
+    let inspectData = await docker.command("inspect " + container["container id"]);
     if (target == "network") {
-        params.push("--format='" +
-            "IP: {{range $p, $conf := .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" +
-            ", Hostname: {{.Config.Hostname}}" +
-            ", Ports: {{range $p, $conf := .NetworkSettings.Ports}} {{$p}} -> Host Mapping {{($conf)}} {{end}}" +
-            "'"
-        );
+        let network = inspectData.object[0].NetworkSettings;
+        network.Hostname = inspectData.object[0].Config.Hostname;
+        return network;
     } else if (target == "image") {
-        params.push("--format='{{.Config.Image}}'");
+        return inspectData.object[0].Config.Image;
     } else if (target == "bindings") {
-        params.push("--format='{{.HostConfig.Binds}}'");
+        return inspectData.object[0].HostConfig.Binds;
     } else if (target == "volumes") {
-        params.push("--format='{{.Config.Volumes}}'");
+        return inspectData.object[0].Config.Volumes;
+    } else {
+        return inspectData.object[0];
     }
-    params.push(container['container id']);
-    return this.dockerCommand(params, stdIn, stdOut);
 };
 
 /**
@@ -353,8 +350,8 @@ exports.runImage = async(settings, image, stdOut, stdErr) => {
         params = params.concat(params, settings.cmd.split(" "));
     }
 
-    if (settings.shell || hasParam(settings, "cmd")) {
-        return this.dockerPtyCommand(params);
+    if (settings.shell || !settings.bgMode || hasParam(settings, "cmd")) {
+        return this.dockerPtyCommand(params, (!settings.shell && !settings.bgMode));
     } else {
         return this.dockerCommand(params, stdOut, stdErr);
     }
@@ -415,13 +412,17 @@ exports.dockerCommand = async(params, stdOut, stdErr) => {
  * dockerPtyCommand
  * @param {*} params 
  */
-exports.dockerPtyCommand = async(params) => {
+exports.dockerPtyCommand = async(params, nonInput) => {
     return new Promise(function(resolve) {
         let exited = false;
-        var rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
+        var rl = null;
+        // If the PTY session requires user input, we initiate a readline session
+        if (!nonInput) {
+            rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            });
+        }
 
         var term = pty.spawn("docker", params);
 
@@ -443,19 +444,38 @@ exports.dockerPtyCommand = async(params) => {
             if (!exited) {
                 clearInterval(closeInterval);
                 exited = true;
-                rl.close();
+                if (rl) {
+                    rl.close();
+                }
                 resolve(0);
             }
         });
 
-        rl.on('line', function(line) {
-            userCommand = line.replace(/\n$/, "");
-            if (userCommand.trim().toLowerCase() == "exit") {
-                closeInterval = setInterval(() => {
-                    term.write("\r");
-                }, 500);
-            }
-            term.write(line + '\n');
-        });
+        // If command mode (bashed into container for example)
+        if (rl) {
+            rl.on('line', function(line) {
+                userCommand = line.replace(/\n$/, "");
+                if (userCommand.trim().toLowerCase() == "exit") {
+                    closeInterval = setInterval(() => {
+                        term.write("\r");
+                    }, 500);
+                }
+                term.write(line + '\n');
+            });
+        }
+        // Otherwise we monitor when the container exits to terminate the PTY terminal manually
+        else {
+            let self = require("./dockerController");
+            let cName = params[params.indexOf("--name") + 1];
+            closeInterval = setInterval(() => {
+                (async() => {
+                    self.listContainers().then((containers) => {
+                        if (containers.find(c => c.names == cName) == null) {
+                            term.write("\r");
+                        }
+                    });
+                })();
+            }, 1000);
+        }
     });
 };

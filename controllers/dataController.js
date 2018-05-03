@@ -178,8 +178,8 @@ exports.saveImageConfig = async(image, config) => {
                 if (err && reject) {
                     reject();
                 } else if (!err) {
-                    existing = Object.assign(existing, settings);
-                    resolve(newDoc);
+                    existing.config = Object.assign(existing.config, config);
+                    resolve(existing);
                 }
             });
         });
