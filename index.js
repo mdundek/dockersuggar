@@ -11,10 +11,13 @@ var figlet = require('figlet');
 
         program
             .version('0.0.2')
-            .description("\n" + figlet.textSync('DockerSuggar'))
+            .description("\n" + figlet.textSync('DockerSuggar'));
 
         let cmdValue = null;
 
+        /**
+         * DOCKERFILE RELATED
+         */
         program
             .command('dockerfiles')
             .alias('df')
@@ -29,15 +32,13 @@ var figlet = require('figlet');
             });
 
         program
-            .command('images')
-            .alias('i')
-            .description('List docker images')
+            .command('new')
+            .alias('n')
+            .description('Create a new Dockerfile')
             .action(() => {
-                cmdValue = "images";
+                cmdValue = "new";
                 (async() => {
-                    console.log("");
-                    await promptController.images();
-                    console.log("");
+                    await promptController.new();
                 })();
             });
 
@@ -54,29 +55,6 @@ var figlet = require('figlet');
             });
 
         program
-            .command('containers')
-            .alias('c')
-            .description('List containers')
-            .action(() => {
-                cmdValue = "containers";
-                (async() => {
-                    console.log("");
-                    await promptController.containers();
-                    console.log("");
-                })();
-            });
-
-        program
-            .command('new')
-            .alias('n')
-            .description('Create a new Dockerfile')
-            .action(() => {
-                cmdValue = "new";
-                (async() => {
-                    await promptController.new();
-                })();
-            });
-        program
             .command('build')
             .alias('b')
             .description('Build a docker image')
@@ -85,6 +63,33 @@ var figlet = require('figlet');
                 (async() => {
                     console.log("");
                     await promptController.build();
+                })();
+            });
+
+        /**
+         * IMAGES RELATED
+         */
+        program
+            .command('images')
+            .alias('i')
+            .description('List docker images')
+            .action(() => {
+                cmdValue = "images";
+                (async() => {
+                    console.log("");
+                    await promptController.images();
+                    console.log("");
+                })();
+            });
+
+        program
+            .command('describe')
+            .description('Describe an image such as ports, volumes and environement variables')
+            .action(() => {
+                cmdValue = "describe";
+                (async() => {
+                    console.log("");
+                    await promptController.commentImage();
                 })();
             });
 
@@ -125,6 +130,58 @@ var figlet = require('figlet');
             });
 
         program
+            .command('run')
+            .alias('r')
+            .description('Run container from image')
+            .action(() => {
+                cmdValue = "run";
+                (async() => {
+                    console.log("");
+                    await promptController.run();
+                })();
+            });
+
+        /**
+         * CONTAINER RELATED
+         */
+        program
+            .command('containers')
+            .alias('c')
+            .description('List containers')
+            .action(() => {
+                cmdValue = "containers";
+                (async() => {
+                    console.log("");
+                    await promptController.containers();
+                    console.log("");
+                })();
+            });
+
+        program
+            .command('startContainer')
+            .alias('startc')
+            .description('Start a docker container')
+            .action(() => {
+                cmdValue = "startContainer";
+                (async() => {
+                    console.log("");
+                    await promptController.start();
+                })();
+            });
+
+        program
+            .command('stopContainer')
+            .alias('stopc')
+            .description('Stop running docker container')
+            .action(() => {
+                cmdValue = "stopContainer";
+                (async() => {
+                    console.log("");
+                    await promptController.stop();
+                })();
+            });
+
+        program
             .command('deleteContainer')
             .alias('dc')
             .description('Delete a docker container')
@@ -136,29 +193,6 @@ var figlet = require('figlet');
                 })();
             });
 
-        program
-            .command('startContaier')
-            .alias('startc')
-            .description('Start a docker container')
-            .action(() => {
-                cmdValue = "startContaier";
-                (async() => {
-                    console.log("");
-                    await promptController.start();
-                })();
-            });
-
-        program
-            .command('run')
-            .alias('r')
-            .description('Run container from image')
-            .action(() => {
-                cmdValue = "run";
-                (async() => {
-                    console.log("");
-                    await promptController.run();
-                })();
-            });
 
         let inspectParameters = ["network", "image", "bindings", "volumes", "raw"];
         program
@@ -214,18 +248,6 @@ var figlet = require('figlet');
                 })();
             });
 
-        program
-            .command('comment')
-            .description('Comment an image')
-            .action(() => {
-                cmdValue = "comment";
-                (async() => {
-                    console.log("");
-                    await promptController.commentImage();
-                })();
-            });
-
-
         program.parse(process.argv);
 
         if (cmdValue === null) {
@@ -236,18 +258,3 @@ var figlet = require('figlet');
         console.log(chalk.red("ERROR: "), err.message);
     }
 })();
-
-/** Manage docker run profiles
- * 
- * Ex. dockersuggar run [profilename] <container name>
- * Add command to save last image/tag settings as run profile
- */
-
-/** Docker tag / push save last used settings 
- * 
- */
-
-/** Dockerfile snippet helper
- * Provide tools to add common snipets to your dockerfile
- * Ex. Add Nodejs, Add GIT, Add Python...
- */
