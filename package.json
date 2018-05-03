@@ -1,5 +1,5 @@
 {
-    "name": "docker-suggar",
+    "name": "dockersuggar",
     "version": "0.0.7",
     "description": "A CLI designed to simplify and automate your Docker commands",
     "keywords": [
