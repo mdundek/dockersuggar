@@ -10,7 +10,7 @@ var figlet = require('figlet');
         await promptController.init();
 
         program
-            .version('0.0.2')
+            .version('0.0.3')
             .description("\n" + figlet.textSync('DockerSuggar'));
 
         let cmdValue = null;
