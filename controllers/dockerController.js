@@ -1,18 +1,13 @@
 "use strict"
 
+var Docker = require('dockerode');
 var fs = require("fs");
 var path = require("path");
-
-const { spawn, exec } = require("child_process");
-var pty = require("pty.js");
-var readline = require('readline');
-
-const dockerCLI = require("docker-cli-js");
-const DockerOptions = dockerCLI.Options;
-const Docker = dockerCLI.Docker;
+var stream = require("stream");
+let self = require("./dockerController");
+var tar = require('tar');
 
 let docker = null;
-let errorCallback = null;
 
 /**
  * hasParam
@@ -26,336 +21,20 @@ let hasParam = (o, p) => {
 /**
  * init
  */
-exports.init = (errorCb) => {
-    errorCallback = errorCb;
+exports.init = () => {
     return new Promise((resolve, reject) => {
+        var socket = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
+        var stats = fs.statSync(socket);
 
-        exec("docker ps", (error, stdout, stderr) => {
-            if (error) {
-                reject(new Error("Docker daemon not found. Make sur you installed and started Docker on this machine."));
-            } else {
-                docker = new Docker();
-                resolve();
-            }
-        });
+        if (!stats.isSocket()) {
+            reject(new Error('Are you sure the docker is running?'));
+        } else {
+            docker = new Docker({ socketPath: socket });
+            resolve();
+        }
     });
 }
 
-/**
- * listImages
- */
-exports.listImages = async() => {
-    try {
-        let data = await docker.command("images");
-        let images = data.images.filter(i => i.repository != "<none>" && i.tag != "<none>" && (i.repository.length != 12 || i.repository.indexOf(".") != -1 || i.repository.indexOf("/") != -1));
-        images.sort((a, b) => {
-            if (a.repository < b.repository)
-                return -1;
-            if (a.repository > b.repository)
-                return 1;
-            return 0;
-        });
-        return images;
-    } catch (err) {
-        errorCallback(err);
-    }
-};
-
-/**
- * listImages
- */
-exports.listContainers = async() => {
-    try {
-        let data = await docker.command("ps -a");
-        let containers = data.containerList;
-
-        let idata = await docker.command("images");
-        let images = idata.images;
-        // console.log(JSON.stringify(images, null, 4));
-        containers = containers.map(c => {
-            let cImage = images.find(i => i["image id"] == c.image);
-            if (!cImage) {
-                cImage = images.find(i => (i.repository + ":" + i.tag) == c.image);
-            }
-            if (!cImage) {
-                cImage = images.find(i => (i.repository) == c.image);
-            }
-            c.image = cImage;
-            c.up = c.status.toLowerCase().indexOf("up ") == 0;
-            return c;
-        });
-        containers.sort((a, b) => {
-            if (a.image && b.image) {
-                if (a.image.repository < b.image.repository)
-                    return -1;
-                if (a.image.repository > b.image.repository)
-                    return 1;
-                return 0;
-            } else {
-                return 1;
-            }
-        });
-        return containers;
-    } catch (err) {
-        errorCallback(err);
-    }
-};
-
-/**
- * deleteImage
- * @param {*} image 
- */
-exports.deleteImage = async(image) => {
-    try {
-        let data = await docker.command("rmi " + image.repository + ":" + image.tag);
-    } catch (err) {
-        errorCallback(err);
-    }
-};
-
-/**
- * deleteContainer
- * @param {*} container 
- */
-exports.deleteContainer = async(container) => {
-    try {
-        let data = await docker.command("rm -fv " + container["container id"]);
-    } catch (err) {
-        errorCallback(err);
-    }
-};
-
-/**
- * bashContainer
- * @param {*} container 
- */
-exports.bashInContainer = async(container) => {
-    return this.dockerPtyCommand([
-        "exec",
-        "-it",
-        container.names,
-        "bash"
-    ]);
-};
-
-/**
- * containerLogs
- * @param {*} container 
- */
-exports.containerLogs = async(container, stdIn, stdOut) => {
-    return this.dockerCommand([
-        "logs",
-        container['container id']
-    ], stdIn, stdOut);
-};
-
-/**
- * inspectContainer
- * @param {*} container 
- * @param {*} target 
- * @param {*} stdIn 
- * @param {*} stdOut 
- */
-exports.inspectContainer = async(container, target) => {
-    let inspectData = await docker.command("inspect " + container["container id"]);
-    if (target == "network") {
-        let network = inspectData.object[0].NetworkSettings;
-        network.Hostname = inspectData.object[0].Config.Hostname;
-        return network;
-    } else if (target == "image") {
-        return inspectData.object[0].Config.Image;
-    } else if (target == "bindings") {
-        return inspectData.object[0].HostConfig.Binds;
-    } else if (target == "volumes") {
-        return inspectData.object[0].Config.Volumes;
-    } else {
-        return inspectData.object[0];
-    }
-};
-
-/**
- * execInContainer
- * @param {*} container 
- * @param {*} command 
- */
-exports.execInContainer = async(container, command) => {
-    let params = [
-        "exec",
-        "-it",
-        container.names
-    ];
-    params = params.concat(command.split(" "));
-    return this.dockerPtyCommand(params);
-};
-
-/**
- * startContainer
- * @param {*} container 
- */
-exports.startContainer = async(container) => {
-    try {
-        let data = await docker.command("start " + container["container id"]);
-    } catch (err) {
-        errorCallback(err);
-    }
-};
-
-/**
- * stopContainer
- * @param {*} container 
- */
-exports.stopContainer = async(container) => {
-    try {
-        let data = await docker.command("stop " + container["container id"]);
-    } catch (err) {
-        errorCallback(err);
-    }
-};
-
-
-/**
- * cleanupImages
- */
-exports.cleanupImages = async() => {
-    try {
-        await docker.command('rmi $(docker images -f "dangling=true" -q)');
-    } catch (err) {
-        errorCallback(err);
-    }
-};
-
-
-/**
- * buildDockerfile
- * @param {*} settings 
- * @param {*} dockerfileData 
- * @param {*} stdOut 
- * @param {*} stdErr 
- */
-exports.buildDockerfile = async(settings, dockerfileData, stdOut, stdErr) => {
-    const params = [
-        "build",
-        "-t"
-    ];
-
-    let imgPath = "";
-    imgPath += hasParam(settings, "registry") ? settings.registry + "/" : "";
-    imgPath += hasParam(settings, "repository") ? settings.repository + "/" : "";
-    imgPath += dockerfileData.repository + ":" + dockerfileData.tag;
-    params.push(imgPath);
-
-    params.push(dockerfileData.path);
-
-    return this.dockerCommand(params, stdOut, stdErr);
-};
-
-/**
- * tagImage
- * @param {*} settings 
- * @param {*} image 
- * @param {*} stdOut 
- * @param {*} stdErr 
- */
-exports.tagImage = async(settings, image, stdOut, stdErr) => {
-    const params = [
-        "tag",
-        image.repository + ":" + image.tag
-    ];
-
-    let imgPath = "";
-    imgPath += hasParam(settings, "registry") ? settings.registry + "/" : "";
-    imgPath += hasParam(settings, "repository") ? settings.repository + "/" : "";
-    imgPath += image.repository + ":" + image.tag;
-    params.push(imgPath);
-
-    return this.dockerCommand(params, stdOut, stdErr);
-};
-
-/**
- * pushImage
- * @param {*} settings 
- * @param {*} image 
- * @param {*} stdOut 
- * @param {*} stdErr 
- */
-exports.pushImage = async(settings, image, stdOut, stdErr) => {
-    const params = [
-        "push"
-    ];
-
-    let imgPath = "";
-    imgPath += hasParam(settings, "registry") ? settings.registry + "/" : "";
-    imgPath += hasParam(settings, "repository") ? settings.repository + "/" : "";
-    imgPath += image.repository + ":" + image.tag;
-    params.push(imgPath);
-
-    return this.dockerCommand(params, stdOut, stdErr);
-};
-
-/**
- * runImage
- * @param {*} settings 
- * @param {*} image 
- * @param {*} stdOut 
- * @param {*} stdErr 
- */
-exports.runImage = async(settings, image, stdOut, stdErr) => {
-    let params = [
-        "run"
-    ];
-
-    params.push("-i");
-
-    if (settings.bgMode) {
-        params.push("-td");
-    } else {
-        params.push("-t");
-    }
-
-    if (settings.remove) {
-        params.push("--rm");
-    }
-
-    if (hasParam(settings, "name")) {
-        params.push("--name");
-        params.push(settings.name);
-    }
-
-    if (settings.ports) {
-        for (let po in settings.ports) {
-            params.push("-p");
-            params.push(settings.ports[po] + ":" + po);
-        }
-    }
-
-    if (settings.env) {
-        for (let env in settings.env) {
-            params.push("-e");
-            params.push(env + "=" + settings.env[env] + "");
-        }
-    }
-
-    if (settings.volumes) {
-        for (let vol in settings.volumes) {
-            params.push("-v");
-            params.push(settings.volumes[vol] + ":" + vol);
-        }
-    }
-
-    params.push(image.repository + ":" + image.tag);
-
-    if (settings.shell) {
-        params.push(settings.shellType);
-    } else if (hasParam(settings, "cmd")) {
-        params = params.concat(params, settings.cmd.split(" "));
-    }
-
-    if (settings.shell || !settings.bgMode || hasParam(settings, "cmd")) {
-        return this.dockerPtyCommand(params, (!settings.shell && !settings.bgMode));
-    } else {
-        return this.dockerCommand(params, stdOut, stdErr);
-    }
-};
 
 /**
  * createDockerfile
@@ -382,100 +61,908 @@ exports.createDockerfile = (dirPath, params) => {
 };
 
 /**
- * dockerCommand
- * @param {*} params 
- * @param {*} stdOut 
- * @param {*} stdErr 
+ * listImages
  */
-exports.dockerCommand = async(params, stdOut, stdErr) => {
-    return new Promise(function(resolve) {
-        let exited = false;
-        const dockerSpawn = spawn("docker", params);
-        dockerSpawn.stdout.on("data", (data) => {
-            if (data.toString().trim().length > 0) {
-                stdOut(data.toString().replace(/\n$/, ""));
-            }
-        });
-        dockerSpawn.stderr.on("data", (data) => {
-            stdErr(data.toString().replace(/\n$/, ""));
-        });
-        dockerSpawn.on("exit", (code) => {
-            if (!exited) {
-                exited = true;
-                resolve(code);
+exports.listImages = () => {
+    return new Promise((resolve, reject) => {
+        docker.listImages((err, images) => {
+            if (err) {
+                reject(err);
+            } else {
+                let allImages = [];
+                images.forEach(function(imageInfo) {
+                    allImages = allImages.concat(
+                        imageInfo.RepoTags.map(rt => {
+                            let repoTagDetails = rt.split(":");
+
+                            return {
+                                "repository": repoTagDetails[0],
+                                "tag": repoTagDetails[1],
+                                "image id": imageInfo.Id,
+                                "size": (imageInfo.Size / 1024 / 1024).toFixed(2)
+                            };
+                        })
+                    );
+                });
+                allImages.sort((a, b) => {
+                    if (a.repository < b.repository)
+                        return -1;
+                    if (a.repository > b.repository)
+                        return 1;
+                    return 0;
+                });
+                resolve(allImages);
             }
         });
     });
 };
 
 /**
- * dockerPtyCommand
- * @param {*} params 
+ * listNetworks
  */
-exports.dockerPtyCommand = async(params, nonInput) => {
-    return new Promise(function(resolve) {
-        let exited = false;
-        var rl = null;
-        // If the PTY session requires user input, we initiate a readline session
-        if (!nonInput) {
-            rl = readline.createInterface({
-                input: process.stdin,
-                output: process.stdout
-            });
-        }
-
-        var term = pty.spawn("docker", params);
-
-        let userCommand = null;
-        let closeInterval = null;
-        term.on('data', function(data) {
-            let line = data.toString();
-
-            let lines = line.split("\r");
-            lines.forEach((l) => {
-                if (userCommand && userCommand == l.replace(/\n$/, "")) {
-                    userCommand = null;
-                } else {
-                    process.stdout.write(l);
-                }
-            });
-        });
-        term.on('exit', function(code) {
-            if (!exited) {
-                clearInterval(closeInterval);
-                exited = true;
-                if (rl) {
-                    rl.close();
-                }
-                resolve(0);
+exports.listNetworks = () => {
+    return new Promise((resolve, reject) => {
+        docker.listNetworks((err, networks) => {
+            if (err) {
+                reject(err);
+            } else {
+                networks.sort((a, b) => {
+                    if (a.Name < b.Name)
+                        return -1;
+                    if (a.Name > b.Name)
+                        return 1;
+                    return 0;
+                });
+                resolve(networks);
             }
         });
+    });
+};
 
-        // If command mode (bashed into container for example)
-        if (rl) {
-            rl.on('line', function(line) {
-                userCommand = line.replace(/\n$/, "");
-                if (userCommand.trim().toLowerCase() == "exit") {
-                    closeInterval = setInterval(() => {
-                        term.write("\r");
-                    }, 500);
-                }
-                term.write(line + '\n');
-            });
-        }
-        // Otherwise we monitor when the container exits to terminate the PTY terminal manually
-        else {
-            let self = require("./dockerController");
-            let cName = params[params.indexOf("--name") + 1];
-            closeInterval = setInterval(() => {
+/**
+ * listContainers
+ */
+exports.listContainers = () => {
+    return new Promise((resolve, reject) => {
+        docker.listContainers({ all: true }, (err, containers) => {
+            if (err) {
+                reject(err);
+            } else {
                 (async() => {
-                    self.listContainers().then((containers) => {
-                        if (containers.find(c => c.names == cName) == null) {
-                            term.write("\r");
+                    let images = await self.listImages();
+
+                    containers = containers.map(c => {
+                        let cImage = images.find(i => i["image id"] == c.ImageID);
+                        if (!cImage) {
+                            cImage = images.find(i => (i.repository + ":" + i.tag) == c.Image);
+                        }
+
+                        return {
+                            "container id": c.Id,
+                            "names": c.Names[0],
+                            "image": cImage,
+                            "up": c.State == "running",
+                            "created": c.Created
+                        };
+                    });
+                    containers.sort((a, b) => {
+                        if (a.image && b.image) {
+                            if (a.image.repository < b.image.repository)
+                                return -1;
+                            if (a.image.repository > b.image.repository)
+                                return 1;
+                            return 0;
+                        } else {
+                            return 1;
                         }
                     });
+                    resolve(containers);
                 })();
-            }, 1000);
+            }
+        });
+    });
+};
+
+/**
+ * deleteImage
+ * @param {*} image 
+ */
+exports.deleteImage = (image) => {
+    return new Promise((resolve, reject) => {
+        let dImage = docker.getImage(image["image id"]);
+        if (dImage) {
+            dImage.remove({
+                "force": true
+            }, (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        } else {
+            reject(new Error("Image not found"));
         }
     });
 };
+
+/**
+ * deleteContainer
+ * @param {*} container 
+ */
+exports.deleteContainer = (container) => {
+    return new Promise((resolve, reject) => {
+        let dContainer = docker.getContainer(container["container id"]);
+        if (dContainer) {
+            dContainer.remove({
+                "force": true
+            }, (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        } else {
+            reject(new Error("Container not found"));
+        }
+    });
+};
+
+/**
+ * getContainerInstance
+ * @param {*} container 
+ */
+exports.getContainerInstance = (container) => {
+    return docker.getContainer(container["container id"]);
+};
+
+/**
+ * getContainerInstanceById
+ * @param {*} containerId 
+ */
+exports.getContainerInstanceById = (containerId) => {
+    return docker.getContainer(containerId);
+};
+
+/**
+ * containerLogs
+ * @param {*} container 
+ */
+exports.containerLogs = (container, params) => {
+    return new Promise((resolve, reject) => {
+        params = params ? params : {};
+        let dContainer = docker.getContainer(container["container id"]);
+        if (!dContainer) {
+            reject(new Error("Container not found"));
+        } else {
+            // create a single stream for stdin and stdout
+            var logStream = new stream.PassThrough();
+
+            let doOutput = params.tail ? null : true;
+            logStream.on('data', function(chunk) {
+                if (doOutput == null && params.tail) {
+                    doOutput = false;
+                    setTimeout(() => {
+                        doOutput = true;
+                    }, 1000);
+                }
+                if (doOutput) {
+                    console.log(chunk.toString('utf8').replace(/\n$/, ""));
+                }
+            });
+
+            let logsParams = {
+                stdout: true,
+                stderr: true,
+                follow: true
+            };
+            if (!params.tail) {
+                logsParams.tail = params.lines ? params.lines : 1000;
+            }
+
+            dContainer.logs(logsParams, function(err, stream) {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                dContainer.modem.demuxStream(stream, logStream, logStream);
+                stream.on('end', function() {
+                    logStream.end();
+                    resolve();
+                });
+
+                if (!params.tail) {
+                    setTimeout(function() {
+                        stream.destroy();
+                    }, 2000);
+                }
+            });
+        }
+    });
+};
+
+/**
+ * inspectContainer
+ * @param {*} container 
+ * @param {*} target 
+ * @param {*} stdIn 
+ * @param {*} stdOut 
+ */
+exports.inspectContainer = (container, target) => {
+    return new Promise((resolve, reject) => {
+        let dContainer = container.inspect ? container : docker.getContainer(container["container id"]);
+        if (!dContainer) {
+            reject(new Error("Container not found"));
+        } else {
+            // query API for container info
+            dContainer.inspect(function(err, inspectData) {
+                if (err) {
+                    reject(err);
+                } else if (target == "network") {
+                    let network = inspectData.NetworkSettings;
+                    network.Hostname = inspectData.Config.Hostname;
+                    resolve(network);
+                } else if (target == "image") {
+                    resolve(inspectData.Config.Image);
+                } else if (target == "bindings") {
+                    resolve(inspectData.HostConfig.Binds);
+                } else if (target == "volumes") {
+                    resolve(inspectData.Config.Volumes);
+                } else {
+                    resolve(inspectData);
+                }
+            });
+        }
+    });
+};
+
+/**
+ * execInContainer
+ * @param {*} container 
+ * @param {*} commands 
+ */
+exports.execInContainer = (container, commands) => {
+    return new Promise((resolve, reject) => {
+        (async() => {
+            let dContainer = docker.getContainer(container["container id"]);
+            if (!dContainer) {
+                reject(new Error("Container not found"));
+            } else {
+                try {
+                    await self.execCmdInContainer(dContainer, commands);
+                    resolve();
+                } catch (err) {
+                    reject(err);
+                }
+            }
+        })();
+    });
+}
+
+
+/**
+ * startContainer
+ * @param {*} container 
+ */
+exports.startContainer = (container) => {
+    return new Promise((resolve, reject) => {
+        let dContainer = docker.getContainer(container["container id"]);
+        if (!dContainer) {
+            reject(new Error("Container not found"));
+        } else {
+            dContainer.start(function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        }
+    });
+};
+
+/**
+ * startContainer
+ * @param {*} container 
+ */
+exports.stopContainer = (container) => {
+    return new Promise((resolve, reject) => {
+        let dContainer = docker.getContainer(container["container id"]);
+        if (!dContainer) {
+            reject(new Error("Container not found"));
+        } else {
+            dContainer.stop(function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        }
+    });
+};
+
+/**
+ * buildDockerfile
+ * @param {*} settings 
+ * @param {*} dockerfileData 
+ * @param {*} stdOut 
+ * @param {*} stdErr 
+ */
+exports.buildDockerfile = (settings, dockerfileData) => {
+    return new Promise((resolve, reject) => {
+        require('child_process').execFile('tar', ['-cjf', 'Dockerfile.tar', '-C', dockerfileData.path, '.'], (err, stdout, stderr) => {
+            if (err) {
+                reject(err);
+            } else {
+                let imgPath = "";
+                imgPath += hasParam(settings, "registry") ? settings.registry + "/" : "";
+                imgPath += (hasParam(settings, "repository") ? settings.repository : dockerfileData.repository) + ":" + dockerfileData.tag;
+
+                var data = fs.createReadStream('./Dockerfile.tar');
+                docker.buildImage(data, {
+                    rm: true,
+                    t: imgPath.toLocaleLowerCase()
+                }, (err, stream) => {
+                    if (err) {
+                        fs.unlinkSync('./Dockerfile.tar');
+                        reject(err);
+                    } else {
+                        stream.pipe(process.stdout, {
+                            end: true
+                        });
+
+                        stream.on('end', function() {
+                            fs.unlinkSync('./Dockerfile.tar');
+                            resolve();
+                        });
+                    }
+                });
+            }
+        });
+    });
+}
+
+/**
+ * tagImage
+ * @param {*} settings 
+ * @param {*} image 
+ * @param {*} stdOut 
+ * @param {*} stdErr 
+ */
+exports.tagImage = (image, settings) => {
+    return new Promise((resolve, reject) => {
+        let dImage = docker.getImage(image["image id"]);
+        if (!dImage) {
+            reject(new Error("Image not found"));
+        } else {
+            console.log(image);
+            let repo = "";
+            repo += hasParam(settings, "registry") ? settings.registry + "/" : "";
+            repo += hasParam(settings, "repository") ? settings.repository : image.repository;
+
+            dImage.tag({
+                "repo": repo.toLocaleLowerCase(),
+                "tag": settings.tag
+            }, (err) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        }
+    });
+};
+
+/**
+ * pushImage
+ * @param {*} settings 
+ * @param {*} image 
+ * @param {*} stdOut 
+ * @param {*} stdErr 
+ */
+exports.pushImage = (image, settings) => {
+    return new Promise((resolve, reject) => {
+        let dImage = docker.getImage(image["image id"]);
+        if (!dImage) {
+            reject(new Error("Image not found"));
+        } else {
+            let opt = {};
+            if (settings.auth) {
+                opt.authconfig = {
+                    username: settings.username,
+                    password: settings.password,
+                    auth: '',
+                    email: settings.email,
+                    serveraddress: settings.server
+                };
+            }
+
+            dImage.push(opt, function(err, stream) {
+                if (err) {
+                    reject(err);
+                } else {
+                    stream.pipe(process.stdout);
+                    stream.on('end', function() {
+                        resolve();
+                    });
+                }
+            });
+        }
+    });
+};
+
+
+
+/**
+ * createNetwork
+ * @param {*} params 
+ */
+exports.createNetwork = (params) => {
+    return new Promise((resolve, reject) => {
+        docker.createNetwork({
+            "Name": params.name,
+            "Driver": params.driver // overlay, bridge (default), macvlan
+                // "IPAM": {
+                //     "Config": [{
+                //         "Subnet": "172.20.0.0/16",
+                //         "IPRange": "172.20.10.0/24",
+                //         "Gateway": "172.20.10.12"
+                //     }]
+                // }
+        }, function(err, network) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(network);
+            }
+        });
+    });
+}
+
+/**
+ * deleteNetwork
+ * @param {*} network 
+ */
+exports.deleteNetwork = (network) => {
+    return new Promise((resolve, reject) => {
+        let dNetwork = docker.getNetwork(network.Id);
+        dNetwork.remove(function(err, result) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+/**
+ * linkToNetwork
+ * @param {*} container 
+ * @param {*} network 
+ */
+exports.linkToNetwork = (container, network) => {
+    return new Promise((resolve, reject) => {
+        let dNetwork = docker.getNetwork(network.Id);
+        dNetwork.connect({
+            Container: container['container id']
+        }, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+/**
+ * unlinkFromNetwork
+ * @param {*} containerId 
+ * @param {*} network 
+ */
+exports.unlinkFromNetwork = (containerId, network) => {
+    return new Promise((resolve, reject) => {
+        let dNetwork = docker.getNetwork(network.Id);
+        dNetwork.disconnect({
+            Container: containerId
+        }, (err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+/**
+ * getNetworkById
+ * @param {*} networkId 
+ */
+exports.getNetworkById = (networkId) => {
+    return docker.getNetwork(networkId);
+}
+
+/**
+ * inspectNetwork
+ * @param {*} network 
+ */
+exports.inspectNetwork = (network) => {
+    return new Promise((resolve, reject) => {
+        let dNetwork = docker.getNetwork(network.Id);
+        dNetwork.inspect((err, data) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(data);
+            }
+        });
+    });
+}
+
+/**
+ * run
+ * @param {*} params 
+ * @param {*} image 
+ */
+exports.runImage = async(params, image) => {
+    var optsc = {
+        'name': params.name,
+        'Image': image.repository + ':' + image.tag,
+        'HostConfig': {
+            "AutoRemove": params.remove ? true : false,
+            'Binds': [],
+            "PortBindings": {},
+            "Links": []
+        }
+    };
+
+    populateHostConfig(params, optsc);
+    populateEnv(params, optsc);
+
+    if (params.bgMode || params.shell || (params.cmd && params.cmd.length > 0)) {
+        if (params.bgMode) {
+            let container = await self.createAndStartContainer(optsc, params);
+
+            if (params.cmd.length == 0 && params.shell) {
+                await self.execShellInContainer(container);
+            } else if (params.cmd.length > 0 && !params.shell) {
+                await self.execCmdInContainer(container, params.cmd);
+            }
+            return container;
+        } else {
+            if (params.shell) {
+                optsc.Cmd = ["bin/bash"];
+            } else {
+                optsc.Cmd = params.cmd;
+            }
+
+            optsc.AttachStdin = true;
+            optsc.AttachStdout = true;
+            optsc.AttachStderr = true;
+            optsc.Tty = true;
+            optsc.OpenStdin = true;
+            optsc.StdinOnce = false;
+
+            let container = await self.createAndStartContainer(optsc, params);
+            await self.attachAndStdinContainer(container);
+            return container;
+        }
+    } else {
+        let container = await self.createAndStartContainer(optsc, params);
+        await self.attachToContainer(container);
+        return container;
+    }
+}
+
+/**
+ * execCmdInContainer
+ * @param {*} container 
+ * @param {*} cmd 
+ */
+exports.attachToContainer = (container) => {
+    return new Promise((resolve, reject) => {
+        (async() => {
+            container.attach({ stream: true, stdin: false, stdout: true, stderr: true }, (err, stream) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                // Show outputs
+                stream.pipe(process.stdout);
+
+                stream.on('end', function() {
+                    resolve();
+                });
+            });
+        })();
+    });
+}
+
+/**
+ * attachAndStdinContainer
+ * @param {*} optsc 
+ */
+exports.attachAndStdinContainer = (container) => {
+    return new Promise((resolve, reject) => {
+        (async() => {
+
+            // Connect stdin
+            var isRaw = process.isRaw;
+
+            let exitSuccess = (stream) => {
+                process.stdin.removeAllListeners();
+                process.stdin.setRawMode(isRaw);
+                process.stdin.resume();
+                stream.end();
+                resolve();
+            };
+
+            let exitFail = (stream, err) => {
+                process.stdin.removeAllListeners();
+                process.stdin.setRawMode(isRaw);
+                process.stdin.resume();
+                if (stream) {
+                    stream.end();
+                }
+                reject(err);
+            };
+
+            container.attach({ stream: true, stdin: true, stdout: true, stderr: true }, (err, stream) => {
+                if (err) {
+                    exitFail(stream, err);
+                    return;
+                }
+                var previousKey,
+                    CTRL_P = '\u0010',
+                    CTRL_Q = '\u0011';
+
+                // Show outputs
+                stream.pipe(process.stdout);
+
+                // Connect stdin                
+                process.stdin.resume();
+                process.stdin.setEncoding('utf8');
+                process.stdin.setRawMode(true);
+                process.stdin.pipe(stream);
+
+                process.stdin.on('data', function(key) {
+                    // Detects it is detaching a running container
+                    if (previousKey === CTRL_P && key === CTRL_Q) {
+                        exitSuccess(stream);
+                    }
+                    previousKey = key;
+                });
+
+                container.start((err, data) => {
+                    if (err) {
+                        exitFail(stream, err);
+                        return;
+                    }
+                    container.wait(function(err, data) {
+                        if (err) {
+                            exitFail(stream, err);
+                            return;
+                        }
+                        exitSuccess(stream);
+                    });
+                });
+            });
+        })();
+    });
+}
+
+/**
+ * execShellInContainer
+ * @param container
+ */
+exports.execShellInContainer = (container) => {
+    return new Promise((resolve, reject) => {
+        container.exec({
+            AttachStdin: true,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: true,
+            OpenStdin: true,
+            StdinOnce: false,
+            Cmd: ["bash"]
+        }, (error, exec) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+
+            var isRaw = process.isRaw;
+            let exit = (stream) => {
+                process.stdin.removeAllListeners();
+                process.stdin.setRawMode(isRaw);
+                process.stdin.resume();
+                stream.end();
+                resolve();
+            };
+
+            var attach_opts = { 'Detach': false, 'Tty': false, stream: true, stdin: true, stdout: true, stderr: true, hijack: true };
+            exec.start(attach_opts, function(err, stream) {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+
+                var previousKey,
+                    CTRL_P = '\u0010',
+                    CTRL_Q = '\u0011';
+
+                stream.setEncoding('utf8');
+                stream.pipe(process.stdout);
+
+                process.stdin.resume();
+                process.stdin.setEncoding('utf8');
+                process.stdin.setRawMode(true);
+                process.stdin.pipe(stream);
+
+                process.stdin.on('data', function(key) {
+                    // Detects it is detaching a running container
+                    if (previousKey === CTRL_P && key === CTRL_Q) {
+                        exit(stream);
+                    }
+                    previousKey = key;
+                });
+
+                stream.on('close', function() {
+                    exit(stream);
+                });
+            });
+        });
+    });
+}
+
+/**
+ * execCmdInContainer
+ * @param {*} container 
+ * @param {*} cmd 
+ */
+exports.execCmdInContainer = (container, cmd) => {
+    return new Promise((resolve, reject) => {
+        container.exec({
+            AttachStdin: true,
+            AttachStdout: true,
+            AttachStderr: true,
+            Tty: true,
+            OpenStdin: true,
+            StdinOnce: false,
+            Cmd: cmd
+        }, (error, exec) => {
+            if (error) {
+                reject(error);
+                return;
+            }
+
+            let exit = (stream, isRaw) => {
+                process.stdin.removeAllListeners();
+                process.stdin.setRawMode(isRaw);
+                process.stdin.resume();
+                stream.end();
+                resolve();
+            };
+
+            var attach_opts = { 'Detach': false, 'Tty': false, stream: true, stdin: true, stdout: true, stderr: true, hijack: true };
+            exec.start(attach_opts, function(err, stream) {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+
+                var previousKey,
+                    CTRL_P = '\u0010',
+                    CTRL_Q = '\u0011';
+
+                stream.setEncoding('utf8');
+                stream.pipe(process.stdout);
+
+                var isRaw = process.isRaw;
+                process.stdin.resume();
+                process.stdin.setEncoding('utf8');
+                process.stdin.setRawMode(true);
+                process.stdin.pipe(stream);
+
+                process.stdin.on('data', function(key) {
+                    // Detects it is detaching a running container
+                    if (previousKey === CTRL_P && key === CTRL_Q) {
+                        exit(stream, isRaw);
+                    }
+                    previousKey = key;
+                });
+
+                stream.on('close', function() {
+                    exit(stream, isRaw);
+                });
+            });
+        });
+    });
+}
+
+/**
+ * createAndStartContainer
+ * @param {*} optsc 
+ */
+exports.createAndStartContainer = (optsc, params) => {
+    return new Promise((resolve, reject) => {
+        (async() => {
+            // Create container
+            let container = await self.createContainer(optsc);
+
+            if (params.network) {
+                try {
+                    await self.linkToNetwork({ "container id": container.id }, { Id: params.networkId });
+                } catch (e) {
+                    console.log(e);
+                    reject(e);
+                    return;
+                }
+            }
+
+            // Start container
+            container.start(function(err, data) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(container);
+                }
+            });
+        })();
+    });
+}
+
+/**
+ * createContainer
+ * @param {*} optsc 
+ */
+exports.createContainer = (optsc) => {
+    return new Promise((resolve, reject) => {
+        docker.createContainer(optsc, (err, container) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(container);
+            }
+        });
+    });
+}
+
+/**
+ * populateHostConfig
+ * @param {*} settings 
+ * @param {*} optsc 
+ */
+let populateHostConfig = (settings, optsc) => {
+    if (settings.volumes) {
+        for (let vol in settings.volumes) {
+            optsc.HostConfig.Binds.push(settings.volumes[vol] + ":" + vol);
+        }
+    }
+
+    if (settings.ports) {
+        for (let po in settings.ports) {
+            optsc.HostConfig.PortBindings[settings.ports[po] + "/tcp"] = [{ "HostPort": po }];
+        }
+    }
+}
+
+/**
+ * populateEnv
+ * @param {*} settings 
+ * @param {*} optsc 
+ */
+let populateEnv = (settings, optsc) => {
+    if (settings.env) {
+        optsc.Env = [];
+        for (let env in settings.env) {
+            optsc.Env.push(env + "=" + settings.env[env]);
+        }
+    }
+}

@@ -13,15 +13,13 @@ var chalk = require("chalk");
 module.exports = {
     init: async() => {
         await dataController.init();
-        await dockerController.init((err) => {
-            throw err;
-        });
+        await dockerController.init();
     },
     updateSettings: async(settings) => {
         const questions = [{
             type: 'input',
             name: 'dockerimgbasepath',
-            message: 'Please enter the path to your docker images (<base path>/<image name>/<tag>/Dockerfile) base folder:',
+            message: 'Please enter the base path to your docker images (' + chalk.red('<base path>') + '/<image name>/<tag>/Dockerfile) base folder:',
             validate: (path) => {
                 return fs.existsSync(path) ? true : "Invalide path"
             }
@@ -33,13 +31,7 @@ module.exports = {
 
         return dataController.saveSettings(imgpathresponse);
     },
-    /**
-     * cleanupImages
-     */
-    cleanupImages: async() => {
-        await dockerController.cleanupImages();
-        console.log(chalk.grey("Done"));
-    },
+
     /**
      * images
      */
@@ -335,7 +327,7 @@ module.exports = {
             },
             {
                 type: 'input',
-                name: 'phone',
+                name: 'repository',
                 message: 'Repository / Namespace (Optional):'
             }
         ];
@@ -343,21 +335,8 @@ module.exports = {
         let buildDockerfile = await prompt(questions);
 
         let sDockerfile = dockers[parseInt(buildDockerfile.index) - 1];
-        let code = await dockerController.buildDockerfile(
-            buildDockerfile,
-            sDockerfile,
-            (stdOut) => {
-                console.log(stdOut);
-            },
-            (stdErr) => {
-                console.log(stdErr);
-            }
-        );
-        if (code == 0) {
-            console.log("\n" + chalk.grey("Done"));
-        } else {
-            console.log("\n" + chalk.red("An error occured"));
-        }
+        await dockerController.buildDockerfile(buildDockerfile, sDockerfile);
+        console.log("\n" + chalk.grey("Done"));
     },
     /**
      * tag
@@ -386,28 +365,15 @@ module.exports = {
             message: 'Registry (Optional):'
         }, {
             type: 'input',
-            name: 'phone',
+            name: 'repository',
             message: 'Repository / Namespace (Optional):'
         }];
 
         let tagImageData = await prompt(questions);
 
-        let sImage = dockers[parseInt(tagImageData.index) - 1];
-        let code = await dockerController.tagImage(
-            sImage,
-            tagImageData,
-            (stdOut) => {
-                console.log(stdOut);
-            },
-            (stdErr) => {
-                console.log(stdErr);
-            }
-        );
-        if (code == 0) {
-            console.log("\n" + chalk.grey("Done"));
-        } else {
-            console.log("\n" + chalk.red("An error occured"));
-        }
+        let sImage = images[parseInt(tagImageData.index) - 1];
+        await dockerController.tagImage(sImage, tagImageData);
+        console.log("\n" + chalk.grey("Done"));
     },
     /**
      * push
@@ -430,34 +396,13 @@ module.exports = {
                     return "Invalide index";
                 }
             }
-        }, {
-            type: 'input',
-            name: 'registry',
-            message: 'Registry (Optional):'
-        }, {
-            type: 'input',
-            name: 'phone',
-            message: 'Repository / Namespace (Optional):'
         }];
 
         let pushImageData = await prompt(questions);
 
         let sImage = dockers[parseInt(pushImageData.index) - 1];
-        let code = await dockerController.pushImage(
-            sImage,
-            pushImageData,
-            (stdOut) => {
-                console.log(stdOut);
-            },
-            (stdErr) => {
-                console.log(stdErr);
-            }
-        );
-        if (code == 0) {
-            console.log("\n" + chalk.grey("Done"));
-        } else {
-            console.log("\n" + chalk.red("An error occured"));
-        }
+        await dockerController.pushImage(sImage, pushImageData);
+        console.log("\n" + chalk.grey("Done"));
     },
     /**
      * run
@@ -548,6 +493,11 @@ module.exports = {
             name: 'bgMode',
             message: 'Do you want to run this container in detached mode:',
             default: true
+        }, {
+            type: 'confirm',
+            name: 'network',
+            message: 'Link the container to an existing network:',
+            default: false
         }];
         // Populate default values for those params if a previous run has been found
         if (previousRunSettings) {
@@ -559,57 +509,62 @@ module.exports = {
 
         let runImageData = await prompt(questions);
 
-        // ************ PROMPT: Shell mode ************
-        if (!runImageData.bgMode) {
+        if (runImageData.network) {
+            let networks = await dockerController.listNetworks();
+            if (networks.length == 0) {
+                console.log(chalk.grey("No networks found"));
+                return;
+            }
+
             questions = [{
-                type: 'confirm',
-                name: 'shell',
-                message: 'Do you wish to log into this container:',
-                default: false
+                type: 'list',
+                name: 'networkName',
+                message: 'Network to link container to:',
+                choices: []
             }];
-            // Populate default values for those params if a previous run has been found
-            if (previousRunSettings && previousRunSettings.settings.shell) {
-                questions[0].default = previousRunSettings.settings.shell;
-            }
 
-            // Prompt user with questions
-            let shellQuestionResponse = await prompt(questions);
+            networks.forEach(n => {
+                questions[0].choices.push(n.Name);
+            });
 
-            // runImageData.shell = shellQuestionResponse.shell;
-            // map responses to final values if necessary
-            runImageData.shell = shellQuestionResponse.shell;
-
-            if (runImageData.shell) {
-                // ************ PROMPT: Shell type ************
-                questions = [{
-                    type: 'list',
-                    name: 'shellType',
-                    message: 'Shell type:',
-                    choices: ["/bin/bash", "sh"],
-                    default: "/bin/bash"
-                }];
-                // Populate default values for those params if a previous run has been found
-                if (previousRunSettings && previousRunSettings.settings.shellType) {
-                    questions[0].default = previousRunSettings.settings.shellType;
+            if (previousRunSettings) {
+                let previousNetwork = networks.find(n => n.Id == previousRunSettings.settings["networkId"]);
+                if (previousNetwork) {
+                    questions[0].default = previousNetwork.Name;
                 }
-                // Prompt user with questions
-                let shellTypeQuestionResponse = await prompt(questions);
-                runImageData.shellType = shellTypeQuestionResponse.shellType;
-            } else {
-                // ************ PROMPT: Extra command ************
-                questions = [{
-                    type: 'input',
-                    name: 'cmd',
-                    message: 'Optional container command parameters:'
-                }];
-                // Populate default values for those params if a previous run has been found
-                if (previousRunSettings && previousRunSettings.settings.cmd && previousRunSettings.settings.cmd.length > 0) {
-                    questions[0].default = previousRunSettings.settings.cmd;
-                }
-                // Prompt user with questions
-                let cmdQuestionResponse = await prompt(questions);
-                runImageData.cmd = cmdQuestionResponse.cmd;
             }
+            let networkNameAnswer = await prompt(questions);
+            let network = networks.find(n => n.Name == networkNameAnswer.networkName);
+
+            runImageData.networkId = network.Id;
+        }
+
+        // ************ PROMPT: Shell mode ************
+        questions = [{
+            type: 'confirm',
+            name: 'shell',
+            message: 'Do you wish to log into this container:',
+            default: false
+        }];
+        // Populate default values for those params if a previous run has been found
+        if (previousRunSettings && previousRunSettings.settings.shell) {
+            questions[0].default = previousRunSettings.settings.shell;
+        }
+
+        // Prompt user with questions
+        let shellQuestionResponse = await prompt(questions);
+
+        // runImageData.shell = shellQuestionResponse.shell;
+        // map responses to final values if necessary
+        runImageData.shell = shellQuestionResponse.shell;
+
+        if (!runImageData.shell) {
+            // ************ PROMPT: Extra command ************
+            let commandsResult = await promptForRepetingValue({
+                "intro": "Execute commands",
+                "value": "Command"
+            }, previousRunSettings && previousRunSettings.settings.cmd ? previousRunSettings.settings.cmd : null);
+            runImageData.cmd = commandsResult;
         }
 
         // ************ PROMPT: Ports ************
@@ -626,7 +581,7 @@ module.exports = {
             }
         }
 
-        let portResult = await promptForRepetingValues({
+        let portResult = await promptForRepetingKeyValues({
             "intro": "Port mapping",
             "key": "Container port",
             "value": "Host port"
@@ -647,7 +602,7 @@ module.exports = {
             }
         }
 
-        let volResult = await promptForRepetingValues({
+        let volResult = await promptForRepetingKeyValues({
             "intro": "Volume mapping",
             "key": "Container volume path",
             "value": "Host volume path"
@@ -655,7 +610,7 @@ module.exports = {
         runImageData.volumes = volResult;
 
         // ************ PROMPT: Environement variables ************
-        let envResult = await promptForRepetingValues({
+        let envResult = await promptForRepetingKeyValues({
             "intro": "Environement variables",
             "key": "Environement variable name",
             "value": "Environement variable value"
@@ -666,38 +621,20 @@ module.exports = {
         await dataController.saveImageRunConfig(sImage, runImageData);
 
         // Now run docker command
-        let code = await dockerController.runImage(
-            runImageData,
-            sImage,
-            (stdOut) => {
-                console.log(stdOut);
-            },
-            (stdErr) => {
-                console.log(stdErr);
-            }
-        );
-        // If success
-        if (code == 0) {
-            let containers = await dockerController.listContainers();
-            let rc = containers.find(c => c.names == runImageData.name);
-            if (rc) {
-                let data = await dockerController.inspectContainer(rc, "network");
-                console.log("");
-                displayInspectData("network", data);
+        let container = await dockerController.runImage(runImageData, sImage);
+        if (runImageData.bgMode) {
+            let data = await dockerController.inspectContainer(container, "network");
+            console.log("");
+            displayInspectData("network", data);
 
-                data = await dockerController.inspectContainer(rc, "bindings");
-                displayInspectData("bindings", data);
+            data = await dockerController.inspectContainer(container, "bindings");
+            displayInspectData("bindings", data);
 
-                data = await dockerController.inspectContainer(rc, "volumes");
-                displayInspectData("volumes", data);
-            }
-            console.log(chalk.grey("\nDone"));
+            data = await dockerController.inspectContainer(container, "volumes");
+            displayInspectData("volumes", data);
         }
-        // On error
-        else {
-            delete
-            console.log("\n" + chalk.red("An error occured"));
-        }
+
+        console.log(chalk.grey("\nDone"));
     },
     /**
      * inspectContainer
@@ -732,9 +669,9 @@ module.exports = {
         displayInspectData(target, data);
     },
     /**
-     * bashInContainer
+     * shellInContainer
      */
-    bashInContainer: async() => {
+    shellInContainer: async() => {
         let containers = await dockerController.listContainers();
         containers = containers.filter(c => c.up);
         if (containers.length == 0) {
@@ -759,8 +696,10 @@ module.exports = {
 
         let indexData = await prompt(questions);
         let bashContainer = containers[parseInt(indexData.index) - 1];
-        await dockerController.bashInContainer(bashContainer);
-        console.log(chalk.grey("Done"));
+
+        let ci = dockerController.getContainerInstance(bashContainer);
+
+        await dockerController.execShellInContainer(ci);
     },
     /**
      * containerLogs
@@ -785,18 +724,16 @@ module.exports = {
                     return "Invalide index";
                 }
             }
+        }, {
+            type: 'confirm',
+            name: 'tail',
+            message: 'Tail logs:',
+            default: true
         }];
 
-        let indexData = await prompt(questions);
-        let bashContainer = containers[parseInt(indexData.index) - 1];
-        await dockerController.containerLogs(bashContainer,
-            (stdOut) => {
-                console.log(stdOut);
-            },
-            (stdErr) => {
-                console.log(stdErr);
-            });
-        console.log(chalk.grey("Done"));
+        let qData = await prompt(questions);
+        let bashContainer = containers[parseInt(qData.index) - 1];
+        await dockerController.containerLogs(bashContainer, qData);
     },
     /**
      * execInContainer
@@ -822,19 +759,21 @@ module.exports = {
                     return "Invalide index";
                 }
             }
-        }, {
-            type: 'input',
-            name: 'command',
-            message: 'Command to execute:',
-            validate: (data) => {
-                return data.trim().length == 0 ? "Required" : true;
-            }
         }];
 
         let containerData = await prompt(questions);
-        let execInContainer = containers[parseInt(containerData.index) - 1];
-        await dockerController.execInContainer(execInContainer, containerData.command);
-        console.log(chalk.grey("Done"));
+
+        // ************ PROMPT: Extra command ************
+        let commandsResult = await promptForRepetingValue({
+            "intro": "Execute commands",
+            "value": "Command"
+        });
+
+        if (commandsResult.length > 0) {
+            let container = containers[parseInt(containerData.index) - 1];
+            await dockerController.execInContainer(container, commandsResult);
+            console.log(chalk.grey("Done"));
+        }
     },
     /**
      * commentImage
@@ -885,19 +824,19 @@ module.exports = {
 
         previousConfig.config.description = description.description;
 
-        let portResult = await promptForRepetingValues({
+        let portResult = await promptForRepetingKeyValues({
             "intro": "Port mapping",
             "key": "Container port",
             "value": "Details"
         }, previousConfig.config.ports ? previousConfig.config.ports : {}, " => ", false);
 
-        let volumeResult = await promptForRepetingValues({
+        let volumeResult = await promptForRepetingKeyValues({
             "intro": "Volume mapping",
             "key": "Container volume path",
             "value": "Details"
         }, previousConfig.config.volumes ? previousConfig.config.volumes : {}, " => ", false);
 
-        let envResult = await promptForRepetingValues({
+        let envResult = await promptForRepetingKeyValues({
             "intro": "Environement variables",
             "key": "Variable name",
             "value": "Description"
@@ -910,15 +849,236 @@ module.exports = {
         await dataController.saveImageConfig(sImage, previousConfig.config);
 
         console.log("\n" + chalk.grey("Done"));
-    }
+    },
+    /**
+     * networks
+     */
+    networks: async() => {
+        let networks = await dockerController.listNetworks();
+        if (networks.length == 0) {
+            console.log(chalk.grey("No networks found"));
+            return;
+        }
+        displayAvailableNetworks(networks);
+    },
+
+    /**
+     * createNetwork
+     */
+    createNetwork: async() => {
+        let questions = [{
+            type: 'list',
+            name: 'driver',
+            message: 'Network driver:',
+            default: 'bridge',
+            choices: ['overlay', 'bridge', 'macvlan', 'host']
+        }, {
+            type: 'input',
+            name: 'name',
+            message: 'Network name:'
+        }];
+
+        let networkData = await prompt(questions);
+
+        let network = await dockerController.createNetwork(networkData);
+
+        console.log("\n" + chalk.grey("Network created"));
+    },
+    /**
+     * deleteNetwork
+     */
+    deleteNetwork: async() => {
+        // Select network
+        let networks = await dockerController.listNetworks();
+        if (networks.length == 0) {
+            console.log(chalk.grey("No networks found"));
+            return;
+        }
+        displayAvailableNetworks(networks, true);
+
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Network number to delete:',
+            validate: (index) => {
+                if (validateIndexResponse(networks, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let networkIndex = await prompt(questions);
+        let network = networks[parseInt(networkIndex.index) - 1];
+
+        await dockerController.deleteNetwork(network);
+
+        console.log("\n" + chalk.grey("Network deleted"));
+    },
+    /**
+     * linkToNetwork
+     */
+    linkToNetwork: async() => {
+        // Select container
+        let containers = await dockerController.listContainers();
+        if (containers.length == 0) {
+            console.log(chalk.grey("There are no containers"));
+            return;
+        }
+
+        displayAvailableContainers(containers, true);
+
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Container number to link to this network:',
+            validate: (index) => {
+                if (validateIndexResponse(containers, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let containerIndex = await prompt(questions);
+        let container = containers[parseInt(containerIndex.index) - 1];
+
+        // Select network
+        let networks = await dockerController.listNetworks();
+        if (networks.length == 0) {
+            console.log(chalk.grey("No networks found"));
+            return;
+        }
+        displayAvailableNetworks(networks, true);
+
+        questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Network number to link a container to:',
+            validate: (index) => {
+                if (validateIndexResponse(networks, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let networkIndex = await prompt(questions);
+        let network = networks[parseInt(networkIndex.index) - 1];
+
+        await dockerController.linkToNetwork(container, network);
+
+        console.log("\n" + chalk.grey("Done"));
+    },
+    /**
+     * unlinkFromNetwork
+     */
+    unlinkFromNetwork: async() => {
+        // Select network
+        let networks = await dockerController.listNetworks();
+        if (networks.length == 0) {
+            console.log(chalk.grey("No networks found"));
+            return;
+        }
+        displayAvailableNetworks(networks, true);
+
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Network number to unlink a container from:',
+            validate: (index) => {
+                if (validateIndexResponse(networks, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let networkIndex = await prompt(questions);
+        let network = networks[parseInt(networkIndex.index) - 1];
+
+        network = await dockerController.inspectNetwork(network);
+
+        questions = [{
+            type: 'list',
+            name: 'containerName',
+            message: 'Unlink container name:',
+            choices: []
+        }];
+
+        for (let cId in network.Containers) {
+            questions[0].choices.push(network.Containers[cId].Name);
+        }
+        if (questions[0].choices.length == 0) {
+            console.log(chalk.grey("No containers to unlink for this network"));
+            return;
+        }
+        let containerNameChoice = await prompt(questions);
+        let container = null;
+        for (let cId in network.Containers) {
+            if (containerNameChoice.containerName == network.Containers[cId].Name) {
+                await dockerController.unlinkFromNetwork(cId, network);
+            }
+        }
+
+        console.log("\n" + chalk.grey("Done"));
+    },
+    /**
+     * inspectNetwork
+     */
+    inspectNetwork: async() => {
+        // Select network
+        let networks = await dockerController.listNetworks();
+        networks = networks.filter(n => n.Driver != "null");
+        if (networks.length == 0) {
+            console.log(chalk.grey("No networks found"));
+            return;
+        }
+        displayAvailableNetworks(networks, true);
+
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Network number to inspect:',
+            validate: (index) => {
+                if (validateIndexResponse(networks, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let networkIndex = await prompt(questions);
+        let network = networks[parseInt(networkIndex.index) - 1];
+
+        let networkData = await dockerController.inspectNetwork(network);
+
+        console.log("SCOPE: " + chalk.cyan(networkData.Scope));
+        console.log("DRIVER: " + chalk.cyan(networkData.Driver));
+        networkData.IPAM.Config.forEach(nc => {
+            console.log("IMAP CONFIG: Subnet => " + chalk.cyan(nc.Subnet) + ", Gateway => " + chalk.cyan(nc.Gateway));
+        });
+
+        let containerNames = [];
+
+        for (let cId in networkData.Containers) {
+            containerNames.push(networkData.Containers[cId].Name + " (" + networkData.Containers[cId].IPv4Address + ")");
+        }
+        console.log("CONTAINERS: " + chalk.cyan(containerNames.length > 0 ? containerNames.join(", ") : "none"));
+    },
 };
 
 /**
- * promptForRepetingValues
+ * promptForRepetingKeyValues
  * @param {*} labels 
  * @param {*} existingList 
  */
-let promptForRepetingValues = async(labels, existingList, separator, invert) => {
+let promptForRepetingKeyValues = async(labels, existingList, separator, invert) => {
     return new Promise((resolve, reject) => {
         console.log("");
         console.log(chalk.yellow(labels.intro + ":"));
@@ -1027,6 +1187,82 @@ let promptForRepetingValues = async(labels, existingList, separator, invert) => 
 };
 
 /**
+ * promptForRepetingValue
+ * @param {*} labels 
+ * @param {*} existingList 
+ */
+let promptForRepetingValue = async(labels, existingList) => {
+    return new Promise((resolve, reject) => {
+        console.log("");
+        console.log(chalk.yellow(labels.intro + ":"));
+        let currentList = !existingList ? [] : existingList.map(o => o);
+        const iterate = () => {
+            let i = 1;
+            console.log("");
+            if (Object.keys(currentList).length == 0) {
+                console.log(chalk.grey("  -None-"));
+            }
+            currentList.forEach((e) => {
+                console.log(chalk.cyan(e));
+            });
+
+            (async() => {
+                let noDel = currentList.length == 0;
+
+                console.log("");
+                let choice = await askAddDelDone("What do you wish to do", noDel);
+
+                if (choice) {
+                    if (choice == "add") {
+                        let questions = [{
+                            type: 'input',
+                            name: 'value',
+                            message: labels.value,
+                            validate: (res) => {
+                                return res.trim().length == 0 ? "Mandatory field" : true
+                            }
+                        }];
+
+                        // Prompt user with questions
+                        let addDetails = await prompt(questions);
+                        currentList.push(addDetails.value);
+                        iterate();
+                    } else if (choice == "remove") {
+                        let questions = [{
+                            type: 'list',
+                            name: 'delValue',
+                            message: 'Remove:',
+                            choices: []
+                        }];
+
+                        currentList.forEach((e) => {
+                            questions[0].choices.push(e);
+                        });
+                        let delItem = await prompt(questions);
+
+                        // delItem.delValue
+                        currentList.forEach((e, i) => {
+                            if (e == delItem.delValue) {
+                                delete currentList[i];
+                            }
+                        });
+
+                        iterate();
+                    } else if (choice == "done") {
+                        console.log("");
+                        resolve(currentList);
+                    } else {
+                        resolve(null);
+                    }
+                }
+            })();
+        }
+
+        iterate();
+    });
+};
+
+/**
  * askAddUpdateDelDone
  * @param {*} questionText 
  * @param {*} noDel 
@@ -1068,6 +1304,47 @@ let askAddUpdateDelDone = (questionText, noDel) => {
 };
 
 /**
+ * askAddDelDone
+ * @param {*} questionText 
+ * @param {*} noDel 
+ */
+let askAddDelDone = (questionText, noDel) => {
+    return new Promise((resolve, reject) => {
+        let questions;
+        if (noDel) {
+            questions = [{
+                type: 'list',
+                name: 'uchoice',
+                message: questionText,
+                choices: ['Add', 'Done'],
+                default: 'Done'
+            }];
+        } else {
+            questions = [{
+                type: 'list',
+                name: 'uchoice',
+                message: questionText,
+                choices: ['Add', 'Remove', 'Done'],
+                default: 'Done'
+            }];
+        }
+        (async() => {
+            let response = await prompt(questions);
+
+            if (response && response.uchoice == "Add") {
+                resolve("add");
+            } else if (response && (response.uchoice == "Remove")) {
+                resolve("remove");
+            } else if (response && (response.uchoice == "Done")) {
+                resolve("done");
+            } else {
+                resolve();
+            }
+        })();
+    });
+};
+
+/**
  * validateIndexResponse
  * @param {*} collection 
  * @param {*} sIndex 
@@ -1092,7 +1369,7 @@ let displayAvailableImages = (images, numbered) => {
             (numbered ? ((i + 1) + ": ") : "") +
             chalk.redBright(image.repository) +
             chalk.yellow(" (" + image.tag + ")") +
-            chalk.grey(" - ID " + image["image id"] + ", SIZE " + image["size"])
+            chalk.grey(" - ID " + image["image id"].substring(0, 19) + "..." + ", SIZE " + image["size"])
         );
     });
 }
@@ -1104,7 +1381,7 @@ let displayAvailableImages = (images, numbered) => {
  */
 let displayAvailableContainers = (containers, numbered) => {
     containers.forEach((container, i) => {
-        let line = chalk.redBright(container["names"]) + " - ID " + container["container id"] + ", created " + container["created"];
+        let line = chalk.redBright(container["names"]) + " - ID " + container["container id"].substring(0, 12) + "..., created " + new Date(container["created"] * 1000);
         if (container["up"]) {
             line = chalk.green("Up:   " + line);
         } else {
@@ -1112,9 +1389,11 @@ let displayAvailableContainers = (containers, numbered) => {
         }
         console.log(
             (numbered ? ((i + 1) + ": ") : "") +
-            line +
-            " (IMAGE ID " + (container.image ? container.image["image id"] : "?") + " -> " + (container.image ? chalk.yellow(container.image.repository + ":" + container.image.tag) : "n/a") + ")"
+            line
         );
+        if (container.image) {
+            console.log("      (IMAGE ID " + (container.image ? container.image["image id"].substring(0, 19) + "..." : "?") + " -> " + (container.image ? chalk.yellow(container.image.repository + ":" + container.image.tag) : "n/a") + ")");
+        }
     });
 }
 
@@ -1127,6 +1406,19 @@ let displayAvailableDockerFiles = (dockers, numbered) => {
     dockers.forEach((d, i) => {
         console.log(
             (numbered ? ((i + 1) + ": ") : "") + chalk.magenta(d.repository) + chalk.yellow(" (" + d.tag + ")")
+        );
+    });
+}
+
+/**
+ * displayAvailableImages
+ * @param {*} images 
+ * @param {*} numbered 
+ */
+let displayAvailableNetworks = (networks, numbered) => {
+    networks.forEach((n, i) => {
+        console.log(
+            (numbered ? ((i + 1) + ": ") : "") + chalk.magenta(n.Name) + ", Scope: " + chalk.yellow(n.Scope) + ", Driver: " + chalk.yellow(n.Driver != "null" ? n.Driver : "n/a")
         );
     });
 }
@@ -1153,13 +1445,13 @@ let displayInspectData = (target, data) => {
     } else if (target == "image") {
         console.log("IMAGE: " + chalk.cyan(data));
     } else if (target == "bindings") {
-        if (data) {
+        if (data && data.length > 0) {
             data = data.map(d => d.split(":"));
             data.forEach(d => {
                 console.log("BINDING: " + chalk.cyan(d[1]) + " => Host folder " + chalk.cyan(d[0]));
             });
         } else {
-            console.log("BINDINGS: " + chalk.cyan("none"));
+            console.log("BINDINGS: none");
         }
     } else if (target == "volumes") {
         for (let v in data) {
