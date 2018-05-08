@@ -7,11 +7,13 @@ var Datastore = require('nedb');
 let db = {
     ImageRunConfigs: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'ImageRunConfigs.test.db' : 'ImageRunConfigs.db')),
     ImageConfigs: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'ImageConfigs.test.db' : 'ImageConfigs.db')),
-    Settings: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'Settings.test.db' : 'Settings.db'))
+    Settings: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'Settings.test.db' : 'Settings.db')),
+    RemoteServers: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'RemoteServers.test.db' : 'RemoteServers.db'))
 };
 db.ImageRunConfigs.loadDatabase();
 db.ImageConfigs.loadDatabase();
 db.Settings.loadDatabase();
+db.RemoteServers.loadDatabase();
 
 exports.IMAGE_BASE_DIR = "images"; // Will be overwritten by promptController.js anyway
 
@@ -39,6 +41,7 @@ exports.destroyTestDb = () => {
         fs.unlinkSync(path.join('./db', 'ImageRunConfigs.test.db'));
         fs.unlinkSync(path.join('./db', 'ImageConfigs.test.db'));
         fs.unlinkSync(path.join('./db', 'Settings.test.db'));
+        fs.unlinkSync(path.join('./db', 'RemoteServers.test.db'));
 
         resolve();
     });
@@ -138,7 +141,7 @@ exports.saveImageRunConfig = async(image, settings) => {
                 _id: existing._id
             }, { $set: { "settings": settings } }, {}, (err) => {
                 if (err && reject) {
-                    reject();
+                    reject(err);
                 } else if (!err) {
                     existing = Object.assign(existing, settings);
                     resolve(existing);
@@ -154,9 +157,46 @@ exports.saveImageRunConfig = async(image, settings) => {
         return new Promise((resolve, reject) => {
             db.ImageRunConfigs.insert(doc, (err, newDoc) => {
                 if (err && reject) {
-                    reject();
+                    reject(err);
                 } else if (!err) {
                     resolve(newDoc);
+                }
+            });
+        });
+    }
+};
+
+/**
+ * saveImageRunConfig
+ * @param {*} image 
+ * @param {*} settings 
+ */
+exports.saveRemoteServer = async(name, settings) => {
+    let existing = await this.lookupRemoteServer(name);
+    if (existing) {
+        return new Promise((resolve, reject) => {
+            db.RemoteServers.update({
+                _id: existing._id
+            }, { $set: { "settings": settings } }, {}, (err) => {
+                if (err && reject) {
+                    reject(err);
+                } else if (!err) {
+                    existing.settings = Object.assign(existing.settings, settings);
+                    resolve();
+                }
+            });
+        });
+    } else {
+        var doc = {
+            "name": name,
+            "settings": settings
+        };
+        return new Promise((resolve, reject) => {
+            db.RemoteServers.insert(doc, (err, newDoc) => {
+                if (err && reject) {
+                    reject(err);
+                } else if (!err) {
+                    resolve();
                 }
             });
         });
@@ -176,7 +216,7 @@ exports.saveImageConfig = async(image, config) => {
                 _id: existing._id
             }, { $set: { "config": config } }, {}, (err) => {
                 if (err && reject) {
-                    reject();
+                    reject(err);
                 } else if (!err) {
                     existing.config = Object.assign(existing.config, config);
                     resolve(existing);
@@ -192,7 +232,7 @@ exports.saveImageConfig = async(image, config) => {
         return new Promise((resolve, reject) => {
             db.ImageConfigs.insert(doc, (err, newDoc) => {
                 if (err && reject) {
-                    reject();
+                    reject(err);
                 } else if (!err) {
                     resolve(newDoc);
                 }
@@ -212,9 +252,42 @@ exports.lookupImageRunConfig = async(image) => {
             "tag": image.tag
         }, (err, docs) => {
             if (err && reject) {
-                reject();
+                reject(err);
             } else if (!err) {
                 resolve(docs.length == 1 ? docs[0] : null);
+            }
+        });
+    });
+};
+
+/**
+ * 
+ * @param {*} name 
+ */
+exports.lookupRemoteServer = async(name) => {
+    return new Promise((resolve, reject) => {
+        db.RemoteServers.find({
+            "name": name
+        }, (err, docs) => {
+            if (err && reject) {
+                reject(err);
+            } else if (!err) {
+                resolve(docs.length == 1 ? docs[0] : null);
+            }
+        });
+    });
+};
+
+/**
+ * getRemoteServers
+ */
+exports.getRemoteServers = async() => {
+    return new Promise((resolve, reject) => {
+        db.RemoteServers.find({}, (err, docs) => {
+            if (err && reject) {
+                reject(err);
+            } else if (!err) {
+                resolve(docs);
             }
         });
     });
@@ -227,7 +300,7 @@ exports.getSettings = async() => {
     return new Promise((resolve, reject) => {
         db.Settings.find({}, (err, docs) => {
             if (err && reject) {
-                reject();
+                reject(err);
             } else if (!err) {
                 resolve(docs.length == 1 ? docs[0] : null);
             }
@@ -247,7 +320,7 @@ exports.saveSettings = async(settings) => {
                 _id: existing._id
             }, settings, {}, (err) => {
                 if (err && reject) {
-                    reject();
+                    reject(err);
                 } else if (!err) {
                     existing = Object.assign(existing, settings);
                     this.IMAGE_BASE_DIR = existing.dockerimgbasepath;
@@ -259,7 +332,7 @@ exports.saveSettings = async(settings) => {
         return new Promise((resolve, reject) => {
             db.Settings.insert(settings, (err, newDoc) => {
                 if (err && reject) {
-                    reject();
+                    reject(err);
                 } else if (!err) {
                     this.IMAGE_BASE_DIR = newDoc.dockerimgbasepath;
                     resolve(newDoc);
@@ -280,9 +353,25 @@ exports.lookupImageConfig = async(image) => {
             "tag": image.tag
         }, (err, docs) => {
             if (err && reject) {
-                reject();
+                reject(err);
             } else if (!err) {
                 resolve(docs.length == 1 ? docs[0] : null);
+            }
+        });
+    });
+};
+
+/**
+ * removeRemoteServer
+ * @param {*} remoteInstance 
+ */
+exports.removeRemoteServer = async(remoteInstance) => {
+    return new Promise((resolve, reject) => {
+        db.RemoteServers.remove({ _id: remoteInstance._id }, {}, (err, numRemoved) => {
+            if (err && reject) {
+                reject(err);
+            } else if (!err) {
+                resolve();
             }
         });
     });

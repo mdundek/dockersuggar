@@ -6,6 +6,7 @@ var path = require("path");
 var stream = require("stream");
 let self = require("./dockerController");
 var tar = require('tar');
+const dataController = require("./dataController");
 
 let docker = null;
 
@@ -21,16 +22,43 @@ let hasParam = (o, p) => {
 /**
  * init
  */
-exports.init = () => {
+exports.init = (remote) => {
     return new Promise((resolve, reject) => {
-        var socket = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
-        var stats = fs.statSync(socket);
+        var socket;
+        // Remote dockerd
+        if (remote) {
+            dataController.lookupRemoteServer(remote).then((remoteConfig) => {
+                if (!remoteConfig) {
+                    reject(new Error("Remote server configuration not found"));
+                    return;
+                }
+                let dRemoteCfg = {
+                    protocol: remoteConfig.settings.protocol,
+                    host: remoteConfig.settings.host,
+                    port: remoteConfig.settings.port
+                };
+                if (remoteConfig.settings.protocol == 'https') {
+                    dRemoteCfg.ca = fs.readFileSync(remoteConfig.settings.ca);
+                    dRemoteCfg.cert = fs.readFileSync(remoteConfig.settings.cert);
+                    dRemoteCfg.key = fs.readFileSync(remoteConfig.settings.key);
+                }
+                docker = new Docker(dRemoteCfg);
+                resolve();
+            }).catch((err) => {
+                reject(err);
+            });
+        }
+        // Local dockerd
+        else {
+            socket = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
+            var stats = fs.statSync(socket);
 
-        if (!stats.isSocket()) {
-            reject(new Error('Are you sure the docker is running?'));
-        } else {
-            docker = new Docker({ socketPath: socket });
-            resolve();
+            if (!stats.isSocket()) {
+                reject(new Error('Are you sure the docker is running?'));
+            } else {
+                docker = new Docker({ socketPath: socket });
+                resolve();
+            }
         }
     });
 }

@@ -13,7 +13,6 @@ var chalk = require("chalk");
 module.exports = {
     init: async() => {
         await dataController.init();
-        await dockerController.init();
     },
     updateSettings: async(settings) => {
         const questions = [{
@@ -1071,7 +1070,119 @@ module.exports = {
         }
         console.log("CONTAINERS: " + chalk.cyan(containerNames.length > 0 ? containerNames.join(", ") : "none"));
     },
+    /**
+     * addRemote
+     */
+    addRemote: async() => {
+        let questions = [{
+            type: 'input',
+            name: 'name',
+            message: 'Remote connection name:',
+            validate: (data) => {
+                return data.trim().length == 0 ? "Required" : true;
+            }
+        }, {
+            type: 'list',
+            name: 'protocol',
+            message: 'Protocol:',
+            choices: ['http', 'https'],
+            default: 'http'
+        }, {
+            type: 'input',
+            name: 'host',
+            message: 'Server host:',
+            validate: (data) => {
+                return data.trim().length == 0 ? "Required" : true;
+            }
+        }, {
+            type: 'input',
+            name: 'port',
+            message: 'Server port:',
+            validate: (data) => {
+                return data.trim().length == 0 ? "Required" : true;
+            }
+        }];
+
+        let remoteSettings = await prompt(questions);
+
+        if (remoteSettings.protocol == 'https') {
+            questions = [{
+                type: 'input',
+                name: 'ca',
+                message: 'ca pem path:',
+                validate: (data) => {
+                    return data.trim().length == 0 ? "Required" : true;
+                }
+            }, {
+                type: 'input',
+                name: 'cert',
+                message: 'cert pem path:',
+                validate: (data) => {
+                    return data.trim().length == 0 ? "Required" : true;
+                }
+            }, {
+                type: 'input',
+                name: 'key',
+                message: 'key pem path:',
+                validate: (data) => {
+                    return data.trim().length == 0 ? "Required" : true;
+                }
+            }]
+            let remoteHttpsSettings = await prompt(questions);
+
+            remoteSettings = Object.assign(remoteSettings, remoteHttpsSettings);
+        }
+
+        let name = remoteSettings.name;
+        delete remoteSettings.name;
+
+        await dataController.saveRemoteServer(name, remoteSettings);
+    },
+    /**
+     * listRemoteConnections
+     */
+    listRemoteConnections: async() => {
+        let remoteConfigs = await dataController.getRemoteServers();
+        if (remoteConfigs.length == 0) {
+            console.log(chalk.grey("No remote servers found"));
+            return;
+        }
+
+        displayRemoteConfigs(remoteConfigs);
+    },
+    /**
+     * removeRemote
+     */
+    removeRemote: async() => {
+        let remotes = await dataController.getRemoteServers();
+        if (remotes.length == 0) {
+            console.log(chalk.grey("No remote servers found"));
+            return;
+        }
+        displayRemoteConfigs(remotes, true);
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'remote server to remove:',
+            validate: (index) => {
+                if (validateIndexResponse(remotes, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let remoteIndexResponse = await prompt(questions);
+
+        let remoteServer = remotes[parseInt(remoteIndexResponse.index) - 1];
+
+        await dataController.removeRemoteServer(remoteServer);
+    }
 };
+
+
+
 
 /**
  * promptForRepetingKeyValues
@@ -1370,6 +1481,21 @@ let displayAvailableImages = (images, numbered) => {
             chalk.redBright(image.repository) +
             chalk.yellow(" (" + image.tag + ")") +
             chalk.grey(" - ID " + image["image id"].substring(0, 19) + "..." + ", SIZE " + image["size"])
+        );
+    });
+}
+
+/**
+ * displayRemoteConfigs
+ * @param {*} remoteList 
+ * @param {*} numbered 
+ */
+let displayRemoteConfigs = (remoteList, numbered) => {
+    remoteList.forEach((r, i) => {
+        console.log(
+            (numbered ? ((i + 1) + ": ") : "") +
+            chalk.redBright(r.name) +
+            chalk.yellow(" (" + r.settings.protocol + "://" + r.settings.host + ":" + r.settings.port + ")")
         );
     });
 }
