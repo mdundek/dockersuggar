@@ -4,11 +4,22 @@ var fs = require("fs");
 var path = require("path");
 
 var Datastore = require('nedb');
+
+// Dockersuggar config folder
+let dsConfigFolder = path.join(require('os').homedir(), '.dockersuggar');
+if (!fs.existsSync(dsConfigFolder)) {
+    fs.mkdirSync(dsConfigFolder);
+}
+let dsDbFolder = path.join(dsConfigFolder, 'db');
+if (!fs.existsSync(dsDbFolder)) {
+    fs.mkdirSync(dsDbFolder);
+}
+
 let db = {
-    ImageRunConfigs: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'ImageRunConfigs.test.db' : 'ImageRunConfigs.db')),
-    ImageConfigs: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'ImageConfigs.test.db' : 'ImageConfigs.db')),
-    Settings: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'Settings.test.db' : 'Settings.db')),
-    RemoteServers: new Datastore(path.join('./db', process.env.TEST == 'true' ? 'RemoteServers.test.db' : 'RemoteServers.db'))
+    ImageRunConfigs: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'ImageRunConfigs.test.db' : 'ImageRunConfigs.db')),
+    ImageConfigs: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'ImageConfigs.test.db' : 'ImageConfigs.db')),
+    Settings: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'Settings.test.db' : 'Settings.db')),
+    RemoteServers: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'RemoteServers.test.db' : 'RemoteServers.db'))
 };
 db.ImageRunConfigs.loadDatabase();
 db.ImageConfigs.loadDatabase();
@@ -38,10 +49,10 @@ exports.init = () => {
 exports.destroyTestDb = () => {
     return new Promise((resolve, reject) => {
         console.log("ATTTEMPT TO DESTROY...");
-        fs.unlinkSync(path.join('./db', 'ImageRunConfigs.test.db'));
-        fs.unlinkSync(path.join('./db', 'ImageConfigs.test.db'));
-        fs.unlinkSync(path.join('./db', 'Settings.test.db'));
-        fs.unlinkSync(path.join('./db', 'RemoteServers.test.db'));
+        fs.unlinkSync(path.join(dsDbFolder, 'ImageRunConfigs.test.db'));
+        fs.unlinkSync(path.join(dsDbFolder, 'ImageConfigs.test.db'));
+        fs.unlinkSync(path.join(dsDbFolder, 'Settings.test.db'));
+        fs.unlinkSync(path.join(dsDbFolder, 'RemoteServers.test.db'));
 
         resolve();
     });
