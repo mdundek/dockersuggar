@@ -8,7 +8,7 @@ var figlet = require('figlet');
 
 
 program
-    .version('0.0.7')
+    .version('0.0.8')
     .description("\n" + figlet.textSync('DockerSuggar'))
     .option('-r, --remote <name>', 'Execute command on a remote docker instance');
 
@@ -108,7 +108,7 @@ program
 program
     .command('images')
     .alias('i')
-    .description('List docker images')
+    .description('List available docker images')
     .action((options) => {
         cmdValue = "images";
         (async() => {
