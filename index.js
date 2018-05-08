@@ -8,7 +8,7 @@ var figlet = require('figlet');
 
 
 program
-    .version('0.0.8')
+    .version('0.0.9')
     .description("\n" + figlet.textSync('DockerSuggar'))
     .option('-r, --remote <name>', 'Execute command on a remote docker instance');
 
