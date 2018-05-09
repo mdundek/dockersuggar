@@ -1,0 +1,102 @@
+﻿{
+  "rasa_nlu_data": {
+    "common_examples": [
+      {
+        "text": "Show me all containers",
+        "intent": "containers",
+        "entities": []
+      },
+      {
+        "text": "Show me all running containers",
+        "intent": "containers",
+        "entities": [
+          {
+            "start": 12,
+            "end": 19,
+            "value": "running",
+            "entity": "status"
+          }
+        ]
+      },
+      {
+        "text": "List all my containers",
+        "intent": "containers",
+        "entities": []
+      },
+      {
+        "text": "I want to see all my containers",
+        "intent": "containers",
+        "entities": []
+      },
+      {
+        "text": "List running containers",
+        "intent": "containers",
+        "entities": [
+          {
+            "start": 5,
+            "end": 12,
+            "value": "running",
+            "entity": "status"
+          }
+        ]
+      },
+      {
+        "text": "Show containers",
+        "intent": "containers",
+        "entities": []
+      },
+      {
+        "text": "List containers",
+        "intent": "containers",
+        "entities": []
+      },
+      {
+        "text": "Display containers",
+        "intent": "containers",
+        "entities": []
+      },
+      {
+        "text": "Display running containers",
+        "intent": "containers",
+        "entities": [
+          {
+            "start": 8,
+            "end": 15,
+            "value": "running",
+            "entity": "status"
+          }
+        ]
+      },
+      {
+        "text": "Show me all images",
+        "intent": "images",
+        "entities": []
+      },
+      {
+        "text": "List all my images",
+        "intent": "images",
+        "entities": []
+      },
+      {
+        "text": "I want to see all my images",
+        "intent": "images",
+        "entities": []
+      },
+      {
+        "text": "Show images",
+        "intent": "images",
+        "entities": []
+      },
+      {
+        "text": "List images",
+        "intent": "images",
+        "entities": []
+      },
+      {
+        "text": "Display images",
+        "intent": "images",
+        "entities": []
+      }
+    ]
+  }
+}
