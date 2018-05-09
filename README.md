@@ -34,7 +34,7 @@ Once instralled, you can use it with the commandline command `dockersuggar`.
 To get the list of available commands, use:
 
 ```
-dockersuggar -h
+$ dockersuggar -h
 ```
 
 This outputs:
@@ -153,7 +153,7 @@ ubuntu (latest) - ID sha256:452a96d81c30..., SIZE 75.93
 NOTE: Once a specific image:tag has been run using `dockersuggar`, the last configuration options will be saved and used as presets values for the next time you run this image. This will make it easier to quickly run images without having to remember image specific configuration details.
 
 ```
-dockersuggar run
+$ dockersuggar run
 
 1: debian (jessie) - ID sha256:2fe79f06fa6d..., SIZE 117.70
 2: debian (stretch-slim) - ID sha256:3ad2120063ab..., SIZE 52.72
@@ -231,14 +231,14 @@ Done
 To create a network and have containers join those networks so that they can directly communicate with each other, you need to create the network first, then run containers and specify the network to join, or link existing containers to those networks afterwards:
 
 ```
-dockersuggar createNetwork
+$ dockersuggar createNetwork
 
 ? Network driver: bridge
 ? Network name: my_network
 
 Network created
 
-dockersuggar linkToNetwork
+$ dockersuggar linkToNetwork
 
 1: Down: /affectionate_jang - ID d5f6f9512cd2..., created Wed Apr 25 2018 10:03:52 GMT+0200 (CEST)
 2: Down: /inspiring_roentgen - ID 0123099571dd..., created Wed Apr 25 2018 10:06:54 GMT+0200 (CEST)
@@ -259,7 +259,7 @@ dockersuggar linkToNetwork
 
 Done
 
-dockersuggar inspectNetwork
+$ dockersuggar inspectNetwork
 
 1: bridge, Scope: local, Driver: bridge
 2: docker_default, Scope: local, Driver: bridge
