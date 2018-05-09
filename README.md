@@ -1,7 +1,7 @@
 # Docker Suggar
 
 Docker Suggar is a command line tool, written in NodeJS.   
-It is usefull to those who are working with remote Docker instances and/or do not want to bother with complex Docker commands every time they need to use it.  
+It is usefull to those who are working with local or remote Docker instances and/or do not want to bother with complex Docker commands every time they need to use it.  
 
 For instance when you wish to spin up a new docker container instance from an image, rather than remembering available Docker commands to bind ports, volumes, environement variables..., Docker Suggar will take you by the hand and help you run your container based on your specific image specifications.
 You can also work directly with remote Docker deamons on your network to simplify things even further.
@@ -40,6 +40,7 @@ dockersuggar -h
 This outputs:
 
 ```
+
   ____             _             ____
  |  _ \  ___   ___| | _____ _ __/ ___| _   _  __ _  __ _  __ _ _ __
  | | | |/ _ \ / __| |/ / _ \ '__\___ \| | | |/ _` |/ _` |/ _` | '__|
@@ -81,8 +82,8 @@ This outputs:
       deleteContainer | dc     Delete a docker container
       inspect [options]        Get container specific information
       logs | l                 Display logs for conainer
-      shell                    Shell terminal into running conainer
-      exec | e                 Execute command on running conainer
+      shell                    Shell terminal into running container
+      exec | e                 Execute command on running container
 
     Networks:
 
@@ -99,8 +100,6 @@ This outputs:
       addUpdateRemote          Add / Update remote docker connection
       removeRemote             Remove a remote docker connection
 ```
-
-
 
 
 ## Some examples
@@ -274,6 +273,12 @@ DRIVER: bridge
 IMAP CONFIG: Subnet => 172.20.0.0/16, Gateway => 172.20.0.1
 CONTAINERS: myproject_dev_mysql (172.20.0.2/16)
 ```
+
+## Future enhancements to come
+
+- There will be support for pushing images to public / private repositories.
+- Extend the use of working with remote Docker engines (at the time being, only possible using the -r flag), by setting a remote configuration globally as the default Docker engine rather than specifying this for every command.
+- Open for suggestions
 
 ## Special thanks
 
