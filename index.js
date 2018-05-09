@@ -32,11 +32,11 @@ let cmdValue = null;
  * COMMANDS: REMOTE STUFF 
  */
 program
-    .command('listRemote')
+    .command('listRemotes')
     .section("Docker remote API servers:")
     .description('List remote connections')
     .action(() => {
-        cmdValue = "listRemote";
+        cmdValue = "listRemotes";
         (async() => {
             try {
                 await init(program);
