@@ -464,7 +464,6 @@ exports.tagImage = (image, settings) => {
         if (!dImage) {
             reject(new Error("Image not found"));
         } else {
-            console.log(image);
             let repo = "";
             repo += hasParam(settings, "registry") ? settings.registry + "/" : "";
             repo += hasParam(settings, "repository") ? settings.repository : image.repository;
@@ -927,7 +926,6 @@ exports.createAndStartContainer = (optsc, params) => {
                 try {
                     await self.linkToNetwork({ "container id": container.id }, { Id: params.networkId });
                 } catch (e) {
-                    console.log(e);
                     reject(e);
                     return;
                 }
@@ -974,8 +972,12 @@ let populateHostConfig = (settings, optsc) => {
     }
 
     if (settings.ports) {
+        if (!optsc.ExposedPorts) {
+            optsc.ExposedPorts = {};
+        }
         for (let po in settings.ports) {
-            optsc.HostConfig.PortBindings[settings.ports[po] + "/tcp"] = [{ "HostPort": po }];
+            optsc.ExposedPorts[po + "/tcp"] = {}
+            optsc.HostConfig.PortBindings[po + "/tcp"] = [{ "HostPort": settings.ports[po] }];
         }
     }
 }
