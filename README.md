@@ -276,7 +276,7 @@ CONTAINERS: myproject_dev_mysql (172.20.0.2/16)
 
 ## Future enhancements to come
 
-- There will be support for pushing images to public / private repositories.
+- There will be support for pulling & pushing images to public / private repositories.
 - Extend the use of working with remote Docker engines (at the time being, only possible using the -r flag), by setting a remote configuration globally as the default Docker engine rather than specifying this for every command.
 - Open for suggestions
 
