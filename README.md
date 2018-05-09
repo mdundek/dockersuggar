@@ -135,7 +135,7 @@ dev_docker (http://192.168.1.25:7654)
 $ dockersuggar -r dev_docker <command>
 ```
 
-For instance to list all images on a remote Docker instance:
+For example, to list all images on a remote Docker instance:
 
 ```
 $ dockersuggar -r dev_docker images
@@ -221,7 +221,7 @@ IMAGE: mysql:5.7.13
 CONTAINER HOSTNAME: 00b4d67dfa44
 CONTAINER IP: 172.17.0.2
 PORT: 3306/tcp => No host mappings
-BINDINGS: none
+BINDINGS: /var/lib/mysql => Host folder /my/own/datadir
 VOLUME: /var/lib/mysql
 
 Done
