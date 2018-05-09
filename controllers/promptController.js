@@ -614,8 +614,9 @@ module.exports = {
         let portResult = await promptForRepetingKeyValues({
             "intro": "Port mapping",
             "key": "Container port",
-            "value": "Host port"
-        }, pSettings, ":", true);
+            "value": "Host port",
+            "valuePostShort": " (Host)"
+        }, pSettings, " : ");
         runImageData.ports = portResult;
 
         // ************ PROMPT: Volumes ************
@@ -635,8 +636,9 @@ module.exports = {
         let volResult = await promptForRepetingKeyValues({
             "intro": "Volume mapping",
             "key": "Container volume path",
-            "value": "Host volume path"
-        }, vSettings, ":", true);
+            "value": "Host volume path",
+            "valuePostShort": " (Host)"
+        }, vSettings, " : ", true);
         runImageData.volumes = volResult;
 
         // ************ PROMPT: Environement variables ************
@@ -1257,9 +1259,6 @@ module.exports = {
     }
 };
 
-
-
-
 /**
  * promptForRepetingKeyValues
  * @param {*} labels 
@@ -1279,15 +1278,31 @@ let promptForRepetingKeyValues = async(labels, existingList, separator, invert) 
             for (let e in currentList) {
                 if (invert) {
                     console.log(
-                        chalk.cyan(currentList[e]) +
+                        chalk.cyan(
+                            (labels.valueShort ? labels.valueShort : "") +
+                            currentList[e] +
+                            (labels.valuePostShort ? labels.valuePostShort : "")
+                        ) +
                         (separator ? separator : "=") +
-                        chalk.cyan(e)
+                        chalk.cyan(
+                            (labels.keyShort ? labels.keyShort : "") +
+                            e +
+                            (labels.keyPostShort ? labels.keyPostShort : "")
+                        )
                     );
                 } else {
                     console.log(
-                        chalk.cyan(e) +
+                        chalk.cyan(
+                            (labels.keyShort ? labels.keyShort : "") +
+                            e +
+                            (labels.keyPostShort ? labels.keyPostShort : "")
+                        ) +
                         (separator ? separator : "=") +
-                        chalk.cyan(currentList[e])
+                        chalk.cyan(
+                            (labels.valueShort ? labels.valueShort : "") +
+                            currentList[e] +
+                            (labels.valuePostShort ? labels.valuePostShort : "")
+                        )
                     );
                 }
             }
