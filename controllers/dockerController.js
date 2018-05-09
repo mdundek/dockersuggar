@@ -854,6 +854,10 @@ exports.execShellInContainer = (container) => {
  */
 exports.execCmdInContainer = (container, cmd) => {
     return new Promise((resolve, reject) => {
+        let cmdArray = [];
+        cmd.forEach(c => {
+            cmdArray = cmdArray.concat(c.split(" "));
+        });
         container.exec({
             AttachStdin: true,
             AttachStdout: true,
@@ -861,7 +865,7 @@ exports.execCmdInContainer = (container, cmd) => {
             Tty: true,
             OpenStdin: true,
             StdinOnce: false,
-            Cmd: cmd
+            Cmd: cmdArray
         }, (error, exec) => {
             if (error) {
                 reject(error);

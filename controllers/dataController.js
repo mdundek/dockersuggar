@@ -145,16 +145,17 @@ exports.extractDockerfileVolumes = (image) => {
  * @param {*} settings 
  */
 exports.saveImageRunConfig = async(image, settings) => {
+    let settingsEscaped = _escapeFieldNames(JSON.parse(JSON.stringify(settings)));
     let existing = await this.lookupImageRunConfig(image);
     if (existing) {
         return new Promise((resolve, reject) => {
             db.ImageRunConfigs.update({
                 _id: existing._id
-            }, { $set: { "settings": settings } }, {}, (err) => {
+            }, { $set: { "settings": settingsEscaped } }, {}, (err) => {
                 if (err && reject) {
                     reject(err);
                 } else if (!err) {
-                    existing = Object.assign(existing, settings);
+                    existing = Object.assign(_unescapeFieldNames(existing), settings);
                     resolve(existing);
                 }
             });
@@ -265,7 +266,7 @@ exports.lookupImageRunConfig = async(image) => {
             if (err && reject) {
                 reject(err);
             } else if (!err) {
-                resolve(docs.length == 1 ? docs[0] : null);
+                resolve(docs.length == 1 ? _unescapeFieldNames(docs[0]) : null);
             }
         });
     });
@@ -387,3 +388,51 @@ exports.removeRemoteServer = async(remoteInstance) => {
         });
     });
 };
+
+/**
+ * _escapeFieldNames
+ * @param {*} obj 
+ */
+function _escapeFieldNames(obj) {
+    for (let f in obj) {
+        if (f != "_id") {
+            if (typeof obj[f] == 'object') {
+                obj[f] = _escapeFieldNames(obj[f]);
+            } else {
+                let newF = f;
+                while (newF.indexOf(".") != -1) {
+                    newF = f.replace(".", "__dot__");
+                }
+                if (newF != f) {
+                    obj[newF] = obj[f];
+                    delete obj[f];
+                }
+            }
+        }
+    }
+    return obj;
+}
+
+/**
+ * _escapeFieldNames
+ * @param {*} obj 
+ */
+function _unescapeFieldNames(obj) {
+    for (let f in obj) {
+        if (f != "_id") {
+            if (typeof obj[f] == 'object') {
+                obj[f] = _unescapeFieldNames(obj[f]);
+            } else {
+                let newF = f;
+                while (newF.indexOf("__dot__") != -1) {
+                    newF = f.replace("__dot__", ".");
+                }
+                if (newF != f) {
+                    obj[newF] = obj[f];
+                    delete obj[f];
+                }
+            }
+        }
+    }
+    return obj;
+}

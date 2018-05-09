@@ -1398,12 +1398,16 @@ let promptForRepetingValue = async(labels, existingList) => {
         console.log("");
         console.log(chalk.yellow(labels.intro + ":"));
         let currentList = !existingList ? [] : existingList.map(o => o);
+        currentList = currentList.filter(o => o != null);
+
         const iterate = () => {
             let i = 1;
             console.log("");
-            if (Object.keys(currentList).length == 0) {
+
+            if (currentList.length == 0) {
                 console.log(chalk.grey("  -None-"));
             }
+
             currentList.forEach((e) => {
                 console.log(chalk.cyan(e));
             });
@@ -1445,7 +1449,7 @@ let promptForRepetingValue = async(labels, existingList) => {
                         // delItem.delValue
                         currentList.forEach((e, i) => {
                             if (e == delItem.delValue) {
-                                delete currentList[i];
+                                currentList.splice(i, 1);
                             }
                         });
 
