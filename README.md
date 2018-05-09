@@ -186,7 +186,7 @@ Port mapping:
 ? Container port 3306
 ? Host port 3307
 
-3307:3306
+3306 : 3307 (Host)
 
 ? What do you wish to do: Done
 
@@ -199,7 +199,7 @@ Volume mapping:
 ? Container volume path /var/lib/mysql
 ? Host volume path /my/own/datadir
 
-/my/own/datadir:/var/lib/mysql
+/my/own/datadir (Host) : /var/lib/mysql
 
 ? What do you wish to do: Done
 
@@ -220,7 +220,7 @@ MYSQL_ROOT_PASSWORD=secret_password
 IMAGE: mysql:5.7.13
 CONTAINER HOSTNAME: 00b4d67dfa44
 CONTAINER IP: 172.17.0.2
-PORT: 3306/tcp => No host mappings
+PORT: 3306/tcp => Host mapping 0.0.0.0:3307
 BINDINGS: /var/lib/mysql => Host folder /my/own/datadir
 VOLUME: /var/lib/mysql
 
