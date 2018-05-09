@@ -2,7 +2,7 @@
 
 const promptController = require("./controllers/promptController");
 const dockerController = require("./controllers/dockerController");
-const program = require('commander');
+const program = require('./commander-custom/commander');
 var chalk = require("chalk");
 var figlet = require('figlet');
 
@@ -13,7 +13,7 @@ program
     .option('-r, --remote <name>', 'Execute command on a remote docker instance');
 
 /**
- * init
+ * INIT
  * @param {*} p 
  */
 let init = async(p) => {
@@ -22,14 +22,89 @@ let init = async(p) => {
         await dockerController.init(p.remote);
     } catch (err) {
         console.log(chalk.red("ERROR: "), err.message);
+        throw e;
     }
 }
 
 let cmdValue = null;
 
 /**
- * DOCKERFILE RELATED
+ * COMMANDS: REMOTE STUFF 
  */
+program
+    .command('listRemote')
+    .section("Docker remote API servers:")
+    .description('List remote connections')
+    .action(() => {
+        cmdValue = "listRemote";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.listRemoteConnections();
+                process.exit(0);
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+program
+    .command('addUpdateRemote')
+    .description('Add / Update remote docker connection')
+    .action(() => {
+        cmdValue = "addRemote";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.addRemote();
+                process.exit(0);
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+program
+    .command('removeRemote')
+    .description('Remove a remote docker connection')
+    .action(() => {
+        cmdValue = "removeRemote";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.removeRemote();
+                process.exit(0);
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+/**
+ * COMMANDS: LOCAL DOCKERFILE STUFF 
+ */
+program
+    .command('dockerProjectsBasePath')
+    .section("Local Dockerfile stuff:")
+    .description('Set / update the base folder path for your Dockerfile projects')
+    .action(() => {
+        cmdValue = "dockerProjectsBasePath";
+        (async() => {
+            try {
+                await promptController.updateSettings("dockerimgbasepath");
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
 program
     .command('dockerfiles')
     .alias('df')
@@ -37,9 +112,10 @@ program
     .action(() => {
         cmdValue = "dockerfiles";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
+
                 await promptController.dockerfiles();
             } catch (e) {
                 console.log("");
@@ -56,8 +132,9 @@ program
     .action(() => {
         cmdValue = "new";
         (async() => {
-            await init(program);
             try {
+                await init(program);
+
                 await promptController.new();
             } catch (e) {
                 console.log("");
@@ -73,9 +150,9 @@ program
     .action(() => {
         cmdValue = "editDockerfile";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.openDockerfile();
             } catch (e) {
                 console.log("");
@@ -91,9 +168,9 @@ program
     .action(() => {
         cmdValue = "build";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.build();
             } catch (e) {
                 console.log("");
@@ -103,18 +180,19 @@ program
     });
 
 /**
- * IMAGES RELATED
+ * COMMANDS: IMAGES RELATED
  */
 program
     .command('images')
+    .section("Docker images:")
     .alias('i')
     .description('List available docker images')
     .action((options) => {
         cmdValue = "images";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.images();
                 console.log("");
             } catch (e) {
@@ -130,9 +208,9 @@ program
     .action(() => {
         cmdValue = "describe";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.commentImage();
             } catch (e) {
                 console.log("");
@@ -148,9 +226,9 @@ program
     .action(() => {
         cmdValue = "tag";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.tag();
             } catch (e) {
                 console.log("");
@@ -166,6 +244,7 @@ program
 //     .action(() => {
 //         cmdValue = "push";
 //         (async() => {
+// try {
 // await init(program);
 // console.log("");
 //             try {
@@ -184,10 +263,33 @@ program
     .action(() => {
         cmdValue = "deleteImage";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.deleteImage();
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+/**
+ * CONTAINER RELATED
+ */
+program
+    .command('containers')
+    .section("Containers:")
+    .alias('c')
+    .description('List containers')
+    .action(() => {
+        cmdValue = "containers";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.containers();
+                console.log("");
             } catch (e) {
                 console.log("");
                 console.log(e.message);
@@ -202,33 +304,11 @@ program
     .action(() => {
         cmdValue = "run";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.run();
                 process.exit(0);
-            } catch (e) {
-                console.log("");
-                console.log(e.message);
-            }
-        })();
-    });
-
-/**
- * CONTAINER RELATED
- */
-program
-    .command('containers')
-    .alias('c')
-    .description('List containers')
-    .action(() => {
-        cmdValue = "containers";
-        (async() => {
-            await init(program);
-            console.log("");
-            try {
-                await promptController.containers();
-                console.log("");
             } catch (e) {
                 console.log("");
                 console.log(e.message);
@@ -243,9 +323,9 @@ program
     .action(() => {
         cmdValue = "startContainer";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.start();
             } catch (e) {
                 console.log("");
@@ -261,9 +341,9 @@ program
     .action(() => {
         cmdValue = "stopContainer";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.stop();
             } catch (e) {
                 console.log("");
@@ -279,9 +359,9 @@ program
     .action(() => {
         cmdValue = "deleteContainer";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.deleteContainer();
             } catch (e) {
                 console.log("");
@@ -293,23 +373,28 @@ program
 
 let inspectParameters = ["network", "image", "bindings", "volumes", "raw"];
 program
-    .command('inspect <' + inspectParameters.join("|") + '>')
+    .command('inspect')
     .description('Get container specific information')
-    .action((target) => {
+    .option('-t, --target [' + inspectParameters.join("|") + ']', 'Inspect target (raw will show the raw json response)')
+    .action((args) => {
+        let target = null;
+        if (args.target) {
+            if (inspectParameters.indexOf(args.target.toLowerCase()) == -1) {
+                console.log(chalk.red("Invalide inspect target: "), target);
+                return;
+            }
+            target = args.target.toLowerCase();
+        }
+
         cmdValue = "inspect";
         (async() => {
-            await init(program);
-            target = target.toLowerCase();
-            if (inspectParameters.indexOf(target) == -1) {
-                console.log(chalk.red("Invalide inspect target: "), target);
-            } else {
+            try {
+                await init(program);
                 console.log("");
-                try {
-                    await promptController.inspectContainer(target);
-                } catch (e) {
-                    console.log("");
-                    console.log(e.message);
-                }
+                await promptController.inspectContainer(target);
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
             }
         })();
     });
@@ -321,9 +406,9 @@ program
     .action(() => {
         cmdValue = "logs";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.containerLogs();
             } catch (e) {
                 console.log("");
@@ -338,9 +423,9 @@ program
     .action(() => {
         cmdValue = "shell";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.shellInContainer();
                 process.exit(0);
             } catch (e) {
@@ -357,9 +442,9 @@ program
     .action(() => {
         cmdValue = "exec";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.execInContainer();
                 process.exit(0);
             } catch (e) {
@@ -369,16 +454,20 @@ program
         })();
     });
 
+/**
+ * COMMANDS: NETWORKS 
+ */
 program
     .command('networks')
+    .section("Networks:")
     .alias('net')
     .description('List available networks')
     .action(() => {
         cmdValue = "networks";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.networks();
                 process.exit(0);
             } catch (e) {
@@ -395,9 +484,9 @@ program
     .action(() => {
         cmdValue = "createNetwork";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.createNetwork();
                 process.exit(0);
             } catch (e) {
@@ -414,9 +503,9 @@ program
     .action(() => {
         cmdValue = "deleteNetwork";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.deleteNetwork();
                 process.exit(0);
             } catch (e) {
@@ -433,9 +522,9 @@ program
     .action(() => {
         cmdValue = "inspectNetwork";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.inspectNetwork();
                 process.exit(0);
             } catch (e) {
@@ -452,9 +541,9 @@ program
     .action(() => {
         cmdValue = "linkToNetwork";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.linkToNetwork();
                 process.exit(0);
             } catch (e) {
@@ -471,64 +560,10 @@ program
     .action(() => {
         cmdValue = "unlinkFromNetwork";
         (async() => {
-            await init(program);
-            console.log("");
             try {
+                await init(program);
+                console.log("");
                 await promptController.unlinkFromNetwork();
-                process.exit(0);
-            } catch (e) {
-                console.log("");
-                console.log(e.message);
-            }
-        })();
-    });
-
-program
-    .command('listRemote')
-    .description('List remote connections')
-    .action(() => {
-        cmdValue = "listRemote";
-        (async() => {
-            await init(program);
-            console.log("");
-            try {
-                await promptController.listRemoteConnections();
-                process.exit(0);
-            } catch (e) {
-                console.log("");
-                console.log(e.message);
-            }
-        })();
-    });
-
-program
-    .command('addUpdateRemote')
-    .description('Add / Update remote docker connection')
-    .action(() => {
-        cmdValue = "addRemote";
-        (async() => {
-            await init(program);
-            console.log("");
-            try {
-                await promptController.addRemote();
-                process.exit(0);
-            } catch (e) {
-                console.log("");
-                console.log(e.message);
-            }
-        })();
-    });
-
-program
-    .command('removeRemote')
-    .description('Remove a remote docker connection')
-    .action(() => {
-        cmdValue = "removeRemote";
-        (async() => {
-            await init(program);
-            console.log("");
-            try {
-                await promptController.removeRemote();
                 process.exit(0);
             } catch (e) {
                 console.log("");
@@ -539,7 +574,9 @@ program
 
 program.parse(process.argv);
 
+// If no command identified
 if (cmdValue === null) {
     console.error('Usage: dockersuggar <command> [options]');
+    console.error('Help:  dockersuggar -h');
     process.exit(1);
 }

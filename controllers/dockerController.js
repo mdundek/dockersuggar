@@ -51,18 +51,20 @@ exports.init = (remote) => {
         // Local dockerd
         else {
             socket = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
-            var stats = fs.statSync(socket);
-
-            if (!stats.isSocket()) {
+            if (!fs.existsSync(socket)) {
                 reject(new Error('Are you sure the docker is running?'));
             } else {
-                docker = new Docker({ socketPath: socket });
-                resolve();
+                var stats = fs.statSync(socket);
+                if (!stats.isSocket()) {
+                    reject(new Error('Are you sure the docker is running?'));
+                } else {
+                    docker = new Docker({ socketPath: socket });
+                    resolve();
+                }
             }
         }
     });
 }
-
 
 /**
  * createDockerfile
@@ -317,7 +319,7 @@ exports.containerLogs = (container, params) => {
  * @param {*} stdIn 
  * @param {*} stdOut 
  */
-exports.inspectContainer = (container, target) => {
+exports.inspectContainer = (container) => {
     return new Promise((resolve, reject) => {
         let dContainer = container.inspect ? container : docker.getContainer(container["container id"]);
         if (!dContainer) {
@@ -327,18 +329,15 @@ exports.inspectContainer = (container, target) => {
             dContainer.inspect(function(err, inspectData) {
                 if (err) {
                     reject(err);
-                } else if (target == "network") {
+                } else {
                     let network = inspectData.NetworkSettings;
                     network.Hostname = inspectData.Config.Hostname;
-                    resolve(network);
-                } else if (target == "image") {
-                    resolve(inspectData.Config.Image);
-                } else if (target == "bindings") {
-                    resolve(inspectData.HostConfig.Binds);
-                } else if (target == "volumes") {
-                    resolve(inspectData.Config.Volumes);
-                } else {
-                    resolve(inspectData);
+                    resolve({
+                        "network": network,
+                        "image": inspectData.Config.Image,
+                        "bindings": inspectData.HostConfig.Binds,
+                        "volumes": inspectData.Config.Volumes,
+                    });
                 }
             });
         }

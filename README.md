@@ -1,25 +1,25 @@
 # Docker Suggar
 
-Docker Suggar is a command line tool, written in NodeJS. 
-It is usefull to those who do not want to bother with complex Docker commands every time they need to use it.  
+Docker Suggar is a command line tool, written in NodeJS.   
+It is usefull to those who are working with remote Docker instances and/or do not want to bother with complex Docker commands every time they need to use it.  
 
 For instance when you wish to spin up a new docker container instance from an image, rather than remembering available Docker commands to bind ports, volumes, environement variables..., Docker Suggar will take you by the hand and help you run your container based on your specific image specifications.
-This tool will also filter out dangeling images to keep things clear, and save previous choices when running a new container to avoid having to remember every image specific settings.
+You can also work directly with remote Docker deamons on your network to simplify things even further.
 
 ## Getting Started
 
-This module is intended to be installed globally on your machine, it will provide you with a new command in your terminal to interact with your local Docker setup. You can also administer your Docker setup over SSH on a remote machine.
+This module is intended to be installed globally on your machine, it will provide you with a new command in your terminal to interact with your local Docker setup.
 
 >Be aware that this is a work in progress.  
 >I will add new commands and fix potential bugs as time goes by.  
 >Any suggestions or requests are welcome, if you feel like participating, just do a pull request and I will gladly merge your updates if appropriate.
 
-I am well aware that a hardcore Docker geek will not find this tool very usefull, while others will enjoy the headache free Docker experience provided by Docker Suggar.
-
 
 ### Prerequisites
 
-Docker Suggar requires Docker CLI, as well as NodeJS to be installed on your machine.
+Docker Suggar requires NodeJS to be installed on your machine.  
+If you wish to administer remote Docker instances with dockersuggar, you will have to enable the remote API on your remote Docker installation.  
+The documentatiopn explaining how to do this can be found [here](https://success.docker.com/article/how-do-i-enable-the-remote-api-for-dockerd)
 
 > I have tested this module on OSX only, please feel free to give this a try on other operating systems.  
 
@@ -51,115 +51,233 @@ This outputs:
 
   Options:
 
-    -V, --version                                   output the version number
-    -h, --help                                      output usage information
+    -V, --version            output the version number
+    -r, --remote <name>      Execute command on a remote docker instance
+    -h, --help               output usage information
 
   Commands:
 
-    dockerfiles|df                                  List local Dockerfiles
-    new|n                                           Create a new Dockerfile
-    editDockerfile|ed                               Edit dockerfile with default editor
-    build|b                                         Build a docker image
-    images|i                                        List docker images
-    describe                                        Describe an image such as ports, volumes and environement variables
-    tag|t                                           Tag a docker image for a repository
-    push|p                                          Push a docker image to repository
-    deleteImage|di                                  Delete a docker image
-    run|r                                           Run container from image
-    containers|c                                    List containers
-    startContainer|startc                           Start a docker container
-    stopContainer|stopc                             Stop running docker container
-    deleteContainer|dc                              Delete a docker container
-    inspect|i <network|image|bindings|volumes|raw>  Get container specific information
-    logs|l                                          Display logs for conainer
-    bash|b                                          Bash terminal into running conainer
-    exec|e                                          Execute command on running conainer
+
+    Local Dockerfile stuff:
+
+      dockerfiles | df         List local Dockerfiles
+      new | n                  Create a new Dockerfile
+      editDockerfile | ed      Edit dockerfile with default editor
+      build | b                Build a docker image
+
+    Docker images:
+
+      images | i               List available docker images
+      document                 Document an image such as ports, volumes and environement variables
+      tag | t                  Tag a docker image for a repository
+      deleteImage | di         Delete a docker image
+
+    Containers:
+
+      containers | c           List containers
+      run | r                  Run container from image
+      startContainer | startc  Start a docker container
+      stopContainer | stopc    Stop running docker container
+      deleteContainer | dc     Delete a docker container
+      inspect [options]        Get container specific information
+      logs | l                 Display logs for conainer
+      shell                    Shell terminal into running conainer
+      exec | e                 Execute command on running conainer
+
+    Networks:
+
+      networks | net           List available networks
+      createNetwork | cn       Create new network
+      deleteNetwork | dn       Delete a network
+      inspectNetwork | in      Inspect a network
+      linkToNetwork | ltn      Link a container to a network
+      unlinkFromNetwork | ufn  Unlink a container from a network
+
+    Docker remote API servers:
+
+      listRemote               List remote connections
+      addUpdateRemote          Add / Update remote docker connection
+      removeRemote             Remove a remote docker connection
 ```
 
-Some commands just output the required data.  
-Example - List all containers on this machine:
+
+
+
+## Some examples
+
+### Work with local Docker instances (list images): 
 
 ```
-dockersuggar containers
+$ dockersuggar images
+
+debian (jessie) - ID sha256:2fe79f06fa6d..., SIZE 117.70
+debian (stretch-slim) - ID sha256:3ad2120063ab..., SIZE 52.72
 ```
 
-Other commands will take you by the hand, and prompt you for details to get the desired outcome.  
-Example - Run a new docker container:
+### Add remote Docker configuration: 
+
+```
+$ dockersuggar addUpdateRemote
+
+? Remote connection name: dev_docker
+? Protocol: http
+? Server host: 192.168.1.25
+? Server port: 7654
+
+$ dockersuggar listRemote
+
+dev_docker (http://192.168.1.25:7654)
+```
+
+### Work with remote Docker instances: 
+
+```
+$ dockersuggar -r dev_docker <command>
+```
+
+For instance to list all images on a remote Docker instance:
+
+```
+$ dockersuggar -r dev_docker images
+
+debian (jessie) - ID sha256:2fe79f06fa6d..., SIZE 117.70
+debian (stretch-slim) - ID sha256:3ad2120063ab..., SIZE 52.72
+mongo (latest) - ID sha256:51f03b16565e..., SIZE 343.07
+mysql (5.7.13) - ID sha256:1195b21c3a45..., SIZE 362.61
+tensorflow/tensorflow (latest-py3) - ID sha256:bf5d66f16f8c..., SIZE 1193.54
+tomcat (7) - ID sha256:d10641f583b3..., SIZE 434.87
+ubuntu (latest) - ID sha256:452a96d81c30..., SIZE 75.93
+```
+
+### Start a new container: 
+
+NOTE: Once a specific image:tag has been run using `dockersuggar`, the last configuration options will be saved and used as presets values for the next time you run this image. This will make it easier to quickly run images without having to remember image specific configuration details.
 
 ```
 dockersuggar run
 
-1: debian (stretch-slim) - ID 3ad2120063ab, SIZE 55.3MB
-2: debian (jessie) - ID 2fe79f06fa6d, SIZE 123MB
-3: debian-test (1.0.0) - ID 3c7f347f1dea, SIZE 55.3MB
-4: mdundek/mongo_facturation (latest) - ID 51f03b16565e, SIZE 360MB
-5: mongo (latest) - ID 51f03b16565e, SIZE 360MB
-6: mysql (5.7.13) - ID 1195b21c3a45, SIZE 380MB
-7: r.cfcr.io/mdundek/mongo_facturation (latest) - ID 51f03b16565e, SIZE 360MB
-8: registry.eu-de.bluemix.net/treeid/postgresql (9.6) - ID 247210f416d3, SIZE 271MB
-9: registry.eu-de.bluemix.net/treeid/postgresqlgis (9.6) - ID 31a67e786baf, SIZE 406MB
-10: registry.eu-gb.bluemix.net/garage_nice/mysql (5.7.21) - ID 59e91c2dde8b, SIZE 409MB
-11: resin/rpi-raspbian (latest) - ID 0cc38b89307c, SIZE 126MB
-12: tensorflow/tensorflow (latest-py3) - ID bf5d66f16f8c, SIZE 1.25GB
-13: tomcat (7) - ID d10641f583b3, SIZE 456MB
-14: yaha (latest) - ID 6ff76a5f9d82, SIZE 848MB
+1: debian (jessie) - ID sha256:2fe79f06fa6d..., SIZE 117.70
+2: debian (stretch-slim) - ID sha256:3ad2120063ab..., SIZE 52.72
+3: mongo (latest) - ID sha256:51f03b16565e..., SIZE 343.07
+4: mysql (5.7.13) - ID sha256:1195b21c3a45..., SIZE 362.61
+5: tensorflow/tensorflow (latest-py3) - ID sha256:bf5d66f16f8c..., SIZE 1193.54
+6: tomcat (7) - ID sha256:d10641f583b3..., SIZE 434.87
+7: ubuntu (latest) - ID sha256:452a96d81c30..., SIZE 75.93
 
-? Image to run: 6
-? Container name: FooDevMysql
-? Remove container on exit: Yes
+? Image to run: 4
+? Container name: myproject_dev_mysql
+? Remove container on exit: No
 ? Do you want to run this container in detached mode: Yes
+? Link the container to an existing network: No
+? Do you wish to log into this container: No
+
+Execute commands:
+
+  -None-
+
+? What do you wish to do: Done
+
 
 Port mapping:
 
-4444:3306
+  -None-
 
-? What do you wish to do (Use arrow keys)
-  Add / update
-  Remove
-❯ Done
+? What do you wish to do: Add
+? Container port 3306
+? Host port 3307
 
-... // You get the point
+3307:3306
+
+? What do you wish to do: Done
+
+
+Volume mapping:
+
+  -None-
+
+? What do you wish to do: Add
+? Container volume path /var/lib/mysql
+? Host volume path /my/own/datadir
+
+/my/own/datadir:/var/lib/mysql
+
+? What do you wish to do: Done
+
+
+Environement variables:
+
+  -None-
+
+? What do you wish to do: Add
+? Environement variable name MYSQL_ROOT_PASSWORD
+? Environement variable value secret_password
+
+MYSQL_ROOT_PASSWORD=secret_password
+
+? What do you wish to do: Done
+
+
+IMAGE: mysql:5.7.13
+CONTAINER HOSTNAME: 00b4d67dfa44
+CONTAINER IP: 172.17.0.2
+PORT: 3306/tcp => No host mappings
+BINDINGS: none
+VOLUME: /var/lib/mysql
+
+Done
 ```
 
-It is also possible to use Docker Suggar to execute commands on a running container, or to start a bash shell session for instance:
+### Container networks: 
+
+To create a network and have containers join those networks so that they can directly communicate with each other, you need to create the network first, then run containers and specify the network to join, or link existing containers to those networks afterwards:
 
 ```
-dockersuggar bash
+dockersuggar createNetwork
 
-1: Up:   mongo_facturation - ID f09078f5c255, created 9 months ago (IMAGE ID 51f03b16565e -> mongo:latest)
+? Network driver: bridge
+? Network name: my_network
 
-? Container number to start a bash session in: 1
+Network created
 
-root@f09078f5c255:/# ls -l
+dockersuggar linkToNetwork
 
-total 72
-drwxr-xr-x   2 root root 4096 Apr 24  2017 bin
-drwxr-xr-x   2 root root 4096 Dec 28  2016 boot
-drwxr-xr-x   4 root root 4096 May  1  2017 data
-drwxr-xr-x   5 root root  340 May  2 13:19 dev
-drwxr-xr-x   2 root root 4096 May  1  2017 docker-entrypoint-initdb.d
-lrwxrwxrwx   1 root root   34 May  1  2017 entrypoint.sh -> usr/local/bin/docker-entrypoint.sh
-drwxr-xr-x   1 root root 4096 Jul 16  2017 etc
-drwxr-xr-x   2 root root 4096 Dec 28  2016 home
-drwxr-xr-x   1 root root 4096 May  1  2017 lib
-drwxr-xr-x   2 root root 4096 Apr 24  2017 lib64
-drwxr-xr-x   2 root root 4096 Apr 24  2017 media
-drwxr-xr-x   2 root root 4096 Apr 24  2017 mnt
-drwxr-xr-x   2 root root 4096 Apr 24  2017 opt
-dr-xr-xr-x 181 root root    0 May  2 13:19 proc
-drwx------   1 root root 4096 Apr 30 13:33 root
-drwxr-xr-x   3 root root 4096 Apr 24  2017 run
-drwxr-xr-x   2 root root 4096 Apr 24  2017 sbin
-drwxr-xr-x   2 root root 4096 Apr 24  2017 srv
-dr-xr-xr-x  13 root root    0 May  2 13:19 sys
-drwxrwxrwt   1 root root 4096 May  2 13:19 tmp
-drwxr-xr-x   1 root root 4096 May  1  2017 usr
-drwxr-xr-x   1 root root 4096 May  1  2017 var
-root@f09078f5c255:/#
+1: Down: /affectionate_jang - ID d5f6f9512cd2..., created Wed Apr 25 2018 10:03:52 GMT+0200 (CEST)
+2: Down: /inspiring_roentgen - ID 0123099571dd..., created Wed Apr 25 2018 10:06:54 GMT+0200 (CEST)
+3: Down: /nifty_bell - ID f9778f1c9598..., created Wed Apr 25 2018 10:07:13 GMT+0200 (CEST)
+4: Down: /amazing_goodall - ID b42e11b942a7..., created Wed Apr 25 2018 10:16:02 GMT+0200 (CEST)
+5: Up:   /myproject_dev_mysql - ID 00b4d67dfa44..., created Wed May 09 2018 11:02:32 GMT+0200 (CEST)
+      (IMAGE ID sha256:1195b21c3a45... -> mysql:5.7.13)
 
-...
+? Container number to link to this network: 5
+
+1: bridge, Scope: local, Driver: bridge
+2: docker_default, Scope: local, Driver: bridge
+3: host, Scope: local, Driver: host
+4: my_network, Scope: local, Driver: bridge
+5: none, Scope: local, Driver: n/a
+
+? Network number to link a container to: 4
+
+Done
+
+dockersuggar inspectNetwork
+
+1: bridge, Scope: local, Driver: bridge
+2: docker_default, Scope: local, Driver: bridge
+3: host, Scope: local, Driver: host
+4: my_network, Scope: local, Driver: bridge
+
+? Network number to inspect: 4
+
+SCOPE: local
+DRIVER: bridge
+IMAP CONFIG: Subnet => 172.20.0.0/16, Gateway => 172.20.0.1
+CONTAINERS: myproject_dev_mysql (172.20.0.2/16)
 ```
 
+## Special thanks
+
+Aside of other usefull modules used in `dockersuggar`, I want to give extra credits to a very usefull module called `dockerode`, key in creating this usefull tool. `dockerode` is the heart of the docker command engine of `dockersuggar`, providing easy access to remote docker instances. So to the author `apocas`, keep up the good work!
 
 ## Authors
 

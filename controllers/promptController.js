@@ -10,25 +10,36 @@ var exec = require('child_process').exec;
 var path = require("path");
 var chalk = require("chalk");
 
+let specialCharactersRegex = /^[_A-z0-9]*$/g;
+
 module.exports = {
     init: async() => {
         await dataController.init();
     },
-    updateSettings: async(settings) => {
-        const questions = [{
-            type: 'input',
-            name: 'dockerimgbasepath',
-            message: 'Please enter the base path to your docker images (' + chalk.red('<base path>') + '/<image name>/<tag>/Dockerfile) base folder:',
-            validate: (path) => {
-                return fs.existsSync(path) ? true : "Invalide path"
-            }
-        }];
-        if (settings && settings.dockerimgbasepath) {
-            questions[0].default = settings.dockerimgbasepath;
-        }
-        let imgpathresponse = await prompt(questions);
+    updateSettings: async(specific) => {
+        let settings = await dataController.getSettings();
+        const questions = [];
 
-        return dataController.saveSettings(imgpathresponse);
+        if (!specific || specific == "dockerimgbasepath") {
+            questions.push({
+                type: 'input',
+                name: 'dockerimgbasepath',
+                message: 'Please enter the base path to your docker images (' + chalk.red('<base path>') + '/<image name>/<tag>/Dockerfile) base folder:',
+                validate: (path) => {
+                    return fs.existsSync(path) ? true : "Invalide path"
+                }
+            });
+            if (settings && settings.dockerimgbasepath) {
+                questions[questions.length - 1].default = settings.dockerimgbasepath;
+            }
+        }
+
+        let settingsResponse = await prompt(questions);
+        if (settings) {
+            settingsResponse = Object.assign(settings, settingsResponse);
+        }
+
+        return dataController.saveSettings(settingsResponse);
     },
 
     /**
@@ -75,6 +86,7 @@ module.exports = {
             return;
         }
         displayAvailableDockerFiles(dockers, true);
+        console.log("");
 
         const questions = [{
             type: 'input',
@@ -114,6 +126,7 @@ module.exports = {
             return;
         }
         displayAvailableImages(images, true);
+        console.log("");
 
         const questions = [{
             type: 'input',
@@ -143,6 +156,7 @@ module.exports = {
             return;
         }
         displayAvailableContainers(containers, true);
+        console.log("");
 
         const questions = [{
             type: 'input',
@@ -179,6 +193,7 @@ module.exports = {
             return;
         }
         displayAvailableContainers(containers, true);
+        console.log("");
 
         const questions = [{
             type: 'input',
@@ -210,6 +225,7 @@ module.exports = {
             return;
         }
         displayAvailableContainers(containers, true);
+        console.log("");
 
         const questions = [{
             type: 'input',
@@ -245,7 +261,13 @@ module.exports = {
             name: 'name',
             message: 'Name of the image:',
             validate: (data) => {
-                return data.trim().length == 0 ? "Required" : true;
+                if (data.trim().length == 0) {
+                    return "Required";
+                } else if (data.match(specialCharactersRegex) == null) {
+                    return "No special characters allowed";
+                } else {
+                    return true;
+                }
             }
         }, {
             type: 'input',
@@ -306,6 +328,7 @@ module.exports = {
             return;
         }
         displayAvailableDockerFiles(dockers, true);
+        console.log("");
 
         const questions = [{
                 type: 'input',
@@ -347,6 +370,8 @@ module.exports = {
             return;
         }
         displayAvailableImages(images, true);
+        console.log("");
+
         let questions = [{
             type: 'input',
             name: 'index',
@@ -384,6 +409,8 @@ module.exports = {
             return;
         }
         displayAvailableImages(images, true);
+        console.log("");
+
         let questions = [{
             type: 'input',
             name: 'index',
@@ -413,6 +440,8 @@ module.exports = {
             return;
         }
         displayAvailableImages(images, true);
+        console.log("");
+
         let questions = [{
             type: 'input',
             name: 'index',
@@ -473,14 +502,16 @@ module.exports = {
             type: 'input',
             name: 'name',
             message: 'Container name:',
-            validate: (res) => {
-                let valide = true;
-                if (res.trim().length == 0) {
-                    valide = "Mandatory field";
-                } else if (existingContainers.find(c => c.names.toLowerCase() == res.toLowerCase()) != null) {
-                    valide = "Container name already in use";
+            validate: (data) => {
+                if (data.trim().length == 0) {
+                    return "Required";
+                } else if (data.match(specialCharactersRegex) == null) {
+                    return "No special characters allowed";
+                } else if (existingContainers.find(c => c.names.toLowerCase() == data.toLowerCase()) != null) {
+                    return "Container name already in use";
+                } else {
+                    return true;
                 }
-                return valide;
             }
         }, {
             type: 'confirm',
@@ -622,15 +653,13 @@ module.exports = {
         // Now run docker command
         let container = await dockerController.runImage(runImageData, sImage);
         if (runImageData.bgMode) {
-            let data = await dockerController.inspectContainer(container, "network");
+            let data = await dockerController.inspectContainer(container);
             console.log("");
-            displayInspectData("network", data);
 
-            data = await dockerController.inspectContainer(container, "bindings");
-            displayInspectData("bindings", data);
-
-            data = await dockerController.inspectContainer(container, "volumes");
-            displayInspectData("volumes", data);
+            displayInspectData("image", data.image);
+            displayInspectData("network", data.network);
+            displayInspectData("bindings", data.bindings);
+            displayInspectData("volumes", data.volumes);
         }
 
         console.log(chalk.grey("\nDone"));
@@ -647,6 +676,7 @@ module.exports = {
         }
 
         displayAvailableContainers(containers, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -663,9 +693,20 @@ module.exports = {
 
         let indexData = await prompt(questions);
         let bashContainer = containers[parseInt(indexData.index) - 1];
-        let data = await dockerController.inspectContainer(bashContainer, target);
+        let data = await dockerController.inspectContainer(bashContainer);
 
-        displayInspectData(target, data);
+        if (target) {
+            if (target == "raw") {
+                console.log(JSON.stringify(data, null, 2));
+            } else {
+                displayInspectData(target, data[target]);
+            }
+        } else {
+            displayInspectData("image", data.image);
+            displayInspectData("network", data.network);
+            displayInspectData("bindings", data.bindings);
+            displayInspectData("volumes", data.volumes);
+        }
     },
     /**
      * shellInContainer
@@ -679,6 +720,7 @@ module.exports = {
         }
 
         displayAvailableContainers(containers, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -711,6 +753,7 @@ module.exports = {
         }
 
         displayAvailableContainers(containers, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -746,6 +789,7 @@ module.exports = {
         }
 
         displayAvailableContainers(containers, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -784,6 +828,7 @@ module.exports = {
             return;
         }
         displayAvailableImages(images, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -894,6 +939,7 @@ module.exports = {
             return;
         }
         displayAvailableNetworks(networks, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -927,6 +973,7 @@ module.exports = {
         }
 
         displayAvailableContainers(containers, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -951,6 +998,7 @@ module.exports = {
             return;
         }
         displayAvailableNetworks(networks, true);
+        console.log("");
 
         questions = [{
             type: 'input',
@@ -983,6 +1031,7 @@ module.exports = {
             return;
         }
         displayAvailableNetworks(networks, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -1038,6 +1087,7 @@ module.exports = {
             return;
         }
         displayAvailableNetworks(networks, true);
+        console.log("");
 
         let questions = [{
             type: 'input',
@@ -1079,7 +1129,13 @@ module.exports = {
             name: 'name',
             message: 'Remote connection name:',
             validate: (data) => {
-                return data.trim().length == 0 ? "Required" : true;
+                if (data.trim().length == 0) {
+                    return "Required";
+                } else if (data.match(specialCharactersRegex) == null) {
+                    return "No special characters allowed";
+                } else {
+                    return true;
+                }
             }
         }, {
             type: 'list',
@@ -1110,22 +1166,40 @@ module.exports = {
                 type: 'input',
                 name: 'ca',
                 message: 'ca pem path:',
-                validate: (data) => {
-                    return data.trim().length == 0 ? "Required" : true;
+                validate: (path) => {
+                    if (path.trim().length == 0) {
+                        return "Required";
+                    } else if (!fs.existsSync(path)) {
+                        return "Invalide path";
+                    } else {
+                        return true;
+                    }
                 }
             }, {
                 type: 'input',
                 name: 'cert',
                 message: 'cert pem path:',
-                validate: (data) => {
-                    return data.trim().length == 0 ? "Required" : true;
+                validate: (path) => {
+                    if (path.trim().length == 0) {
+                        return "Required";
+                    } else if (!fs.existsSync(path)) {
+                        return "Invalide path";
+                    } else {
+                        return true;
+                    }
                 }
             }, {
                 type: 'input',
                 name: 'key',
                 message: 'key pem path:',
-                validate: (data) => {
-                    return data.trim().length == 0 ? "Required" : true;
+                validate: (path) => {
+                    if (path.trim().length == 0) {
+                        return "Required";
+                    } else if (!fs.existsSync(path)) {
+                        return "Invalide path";
+                    } else {
+                        return true;
+                    }
                 }
             }]
             let remoteHttpsSettings = await prompt(questions);
@@ -1160,6 +1234,8 @@ module.exports = {
             return;
         }
         displayRemoteConfigs(remotes, true);
+        console.log("");
+
         let questions = [{
             type: 'input',
             name: 'index',
