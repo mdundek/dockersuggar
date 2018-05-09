@@ -686,7 +686,7 @@ exports.runImage = async(params, image) => {
 }
 
 /**
- * execCmdInContainer
+ * attachToContainer
  * @param {*} container 
  * @param {*} cmd 
  */
@@ -858,6 +858,7 @@ exports.execCmdInContainer = (container, cmd) => {
         cmd.forEach(c => {
             cmdArray = cmdArray.concat(c.split(" "));
         });
+
         container.exec({
             AttachStdin: true,
             AttachStdout: true,
