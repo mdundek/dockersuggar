@@ -29,7 +29,7 @@ The documentatiopn explaining how to do this can be found [here](https://success
 npm install -g dockersuggar
 ```
 
-Once instralled, you can use it with the commandline command `dockersuggar`.  
+Once instralled, you can use it with the command `dockersuggar`.  
   
 To get the list of available commands, use:
 
@@ -96,7 +96,7 @@ This outputs:
 
     Docker remote API servers:
 
-      listRemote               List remote connections
+      listRemotes               List remote connections
       addUpdateRemote          Add / Update remote docker connection
       removeRemote             Remove a remote docker connection
 ```
@@ -123,7 +123,7 @@ $ dockersuggar addUpdateRemote
 ? Server host: 192.168.1.25
 ? Server port: 7654
 
-$ dockersuggar listRemote
+$ dockersuggar listRemotes
 
 dev_docker (http://192.168.1.25:7654)
 ```
