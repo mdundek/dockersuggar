@@ -7,6 +7,10 @@ var stream = require("stream");
 let self = require("./dockerController");
 var tar = require('tar');
 const dataController = require("./dataController");
+const ora = require('ora');
+
+const spinner = ora('');
+spinner.color = 'yellow';
 
 let docker = null;
 
@@ -104,12 +108,12 @@ exports.listImages = () => {
                     allImages = allImages.concat(
                         imageInfo.RepoTags.map(rt => {
                             let repoTagDetails = rt.split(":");
-
                             return {
                                 "repository": repoTagDetails[0],
                                 "tag": repoTagDetails[1],
                                 "image id": imageInfo.Id,
-                                "size": (imageInfo.Size / 1024 / 1024).toFixed(2)
+                                "size": (imageInfo.Size / 1024 / 1024).toFixed(2),
+                                "created": imageInfo.Created
                             };
                         })
                     );
@@ -172,6 +176,7 @@ exports.listContainers = () => {
                             "names": c.Names[0],
                             "image": cImage,
                             "up": c.State == "running",
+                            "state": c.State,
                             "created": c.Created
                         };
                     });
@@ -390,6 +395,48 @@ exports.startContainer = (container) => {
 };
 
 /**
+ * pauseContainer
+ * @param {*} container 
+ */
+exports.pauseContainer = (container) => {
+    return new Promise((resolve, reject) => {
+        let dContainer = docker.getContainer(container["container id"]);
+        if (!dContainer) {
+            reject(new Error("Container not found"));
+        } else {
+            dContainer.pause(function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        }
+    });
+};
+
+/**
+ * unpauseContainer
+ * @param {*} container 
+ */
+exports.unpauseContainer = (container) => {
+    return new Promise((resolve, reject) => {
+        let dContainer = docker.getContainer(container["container id"]);
+        if (!dContainer) {
+            reject(new Error("Container not found"));
+        } else {
+            dContainer.unpause(function(err) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            });
+        }
+    });
+};
+
+/**
  * startContainer
  * @param {*} container 
  */
@@ -520,7 +567,51 @@ exports.pushImage = (image, settings) => {
     });
 };
 
+/**
+ * pullImage
+ * @param {*} settings 
+ * @param {*} imageName 
+ */
+exports.pullImage = (imageName, settings) => {
+    return new Promise((resolve, reject) => {
+        let opt = {};
+        if (settings.auth) {
+            opt.authconfig = {
+                username: settings.username,
+                password: settings.password,
+                auth: '',
+                email: settings.email,
+                serveraddress: settings.server
+            };
+        }
 
+        if (imageName.indexOf(":") == -1) {
+            imageName += ":latest";
+        }
+
+        spinner.text = 'Pulling image...';
+        spinner.start();
+
+        docker.pull(imageName, (err, stream) => {
+            if (err) {
+                reject(err);
+            } else {
+                stream.on("data", (chunk) => {
+                    let lines = chunk.toString('utf8').trim().split("\n");
+                    lines.forEach((line) => {
+                        let json = JSON.parse(line);
+                        spinner.text = json.status + (json.progress ? ": " + json.progress : "");
+                    });
+
+                });
+                stream.on('end', function() {
+                    spinner.stop();
+                    resolve();
+                });
+            }
+        });
+    });
+};
 
 /**
  * createNetwork

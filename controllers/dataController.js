@@ -1,15 +1,37 @@
 "use strict"
 
 var fs = require("fs");
+var fse = require('fs-extra');
 var path = require("path");
 
 var Datastore = require('nedb');
 
-// Dockersuggar config folder
+// Dockersuggar config base folder
 let dsConfigFolder = path.join(require('os').homedir(), '.dockersuggar');
 if (!fs.existsSync(dsConfigFolder)) {
     fs.mkdirSync(dsConfigFolder);
 }
+
+// NLU model folders
+let nluFolder = path.join(dsConfigFolder, 'nlu');
+if (!fs.existsSync(nluFolder)) {
+    fs.mkdirSync(nluFolder);
+}
+exports.NLU_DATA_FOLDER = path.join(nluFolder, 'data');
+exports.NLU_PROJECT_FOLDER = path.join(nluFolder, 'projects');
+exports.NLU_PROJECT_DOCKERSUGGAR_FOLDER = path.join(this.NLU_PROJECT_FOLDER, 'dockersuggar');
+exports.NLU_LOGS_FOLDER = path.join(nluFolder, 'logs');
+if (!fs.existsSync(this.NLU_LOGS_FOLDER)) {
+    fs.mkdirSync(this.NLU_LOGS_FOLDER);
+}
+if (!fs.existsSync(this.NLU_PROJECT_FOLDER)) {
+    fs.mkdirSync(this.NLU_PROJECT_FOLDER);
+}
+if (!fs.existsSync(this.NLU_DATA_FOLDER)) {
+    fs.mkdirSync(this.NLU_DATA_FOLDER);
+}
+
+// Database folder
 let dsDbFolder = path.join(dsConfigFolder, 'db');
 if (!fs.existsSync(dsDbFolder)) {
     fs.mkdirSync(dsDbFolder);
@@ -33,12 +55,17 @@ exports.IMAGE_BASE_DIR = "images"; // Will be overwritten by promptController.js
  */
 exports.init = () => {
     return new Promise((resolve, reject) => {
-        if (process.env.TEST) {
-            setTimeout(() => {
+        try {
+            fse.copySync(path.join(__basedir, "resources/rasa_nlu/projects"), this.NLU_PROJECT_FOLDER);
+            if (process.env.TEST) {
+                setTimeout(() => {
+                    resolve();
+                }, 200);
+            } else {
                 resolve();
-            }, 200);
-        } else {
-            resolve();
+            }
+        } catch (err) {
+            reject(err)
         }
     });
 }
@@ -64,6 +91,13 @@ exports.destroyTestDb = () => {
  */
 exports.setBaseImagesPath = (fpath) => {
     this.IMAGE_BASE_DIR = fpath;
+};
+
+/**
+ * deleteModelData
+ */
+exports.deleteModelData = () => {
+    fse.removeSync(this.NLU_PROJECT_DOCKERSUGGAR_FOLDER);
 };
 
 /**

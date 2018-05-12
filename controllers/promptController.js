@@ -400,6 +400,27 @@ module.exports = {
         console.log("\n" + chalk.grey("Done"));
     },
     /**
+     * pull
+     */
+    pull: async() => {
+        let questions = [{
+            type: 'input',
+            name: 'imageName',
+            message: 'Image to pull:',
+            validate: (data) => {
+                if (data.trim().length == 0) {
+                    return "Required";
+                } else {
+                    return true;
+                }
+            }
+        }];
+        let imagePullRequest = await prompt(questions);
+
+        await dockerController.pullImage(imagePullRequest.imageName, {});
+        console.log("\n" + chalk.grey("Done"));
+    },
+    /**
      * push
      */
     push: async() => {
@@ -507,7 +528,7 @@ module.exports = {
                     return "Required";
                 } else if (data.match(specialCharactersRegex) == null) {
                     return "No special characters allowed";
-                } else if (existingContainers.find(c => c.names.toLowerCase() == data.toLowerCase()) != null) {
+                } else if (existingContainers.find(c => c.names.toLowerCase() == "/" + data.toLowerCase()) != null) {
                     return "Container name already in use";
                 } else {
                     return true;
@@ -974,13 +995,20 @@ module.exports = {
             return;
         }
 
+        // Select network
+        let networks = await dockerController.listNetworks();
+        if (networks.length == 0) {
+            console.log(chalk.grey("No networks found"));
+            return;
+        }
+
         displayAvailableContainers(containers, true);
         console.log("");
 
         let questions = [{
             type: 'input',
             name: 'index',
-            message: 'Container number to link to this network:',
+            message: 'Container number to link a network to:',
             validate: (index) => {
                 if (validateIndexResponse(containers, index)) {
                     return true;
@@ -993,19 +1021,13 @@ module.exports = {
         let containerIndex = await prompt(questions);
         let container = containers[parseInt(containerIndex.index) - 1];
 
-        // Select network
-        let networks = await dockerController.listNetworks();
-        if (networks.length == 0) {
-            console.log(chalk.grey("No networks found"));
-            return;
-        }
         displayAvailableNetworks(networks, true);
         console.log("");
 
         questions = [{
             type: 'input',
             name: 'index',
-            message: 'Network number to link a container to:',
+            message: 'Network number to link this container to:',
             validate: (index) => {
                 if (validateIndexResponse(networks, index)) {
                     return true;
@@ -1604,18 +1626,36 @@ let displayAvailableContainers = (containers, numbered) => {
     containers.forEach((container, i) => {
         let line = chalk.redBright(container["names"]) + " - ID " + container["container id"].substring(0, 12) + "..., created " + new Date(container["created"] * 1000);
         if (container["up"]) {
-            line = chalk.green("Up:   " + line);
+            line = chalk.green(padContainerStatus(container.state) + line);
         } else {
-            line = chalk.grey("Down: " + line);
+            line = chalk.grey(padContainerStatus(container.state) + line);
         }
         console.log(
             (numbered ? ((i + 1) + ": ") : "") +
             line
         );
         if (container.image) {
-            console.log("      (IMAGE ID " + (container.image ? container.image["image id"].substring(0, 19) + "..." : "?") + " -> " + (container.image ? chalk.yellow(container.image.repository + ":" + container.image.tag) : "n/a") + ")");
+            console.log("          (IMAGE ID " + (container.image ? container.image["image id"].substring(0, 19) + "..." : "?") + " -> " + (container.image ? chalk.yellow(container.image.repository + ":" + container.image.tag) : "n/a") + ")");
         }
     });
+}
+
+/**
+ * padContainerStatus
+ * @param {*} label 
+ */
+let padContainerStatus = (label) => {
+    let la = label.split("");
+    let colon = false;
+    for (let i = label.length; i < 10; i++) {
+        if (!colon) {
+            la.push(":");
+            colon = true;
+        } else {
+            la.push(" ");
+        }
+    }
+    return la.join("");
 }
 
 /**

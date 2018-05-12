@@ -1,5 +1,7 @@
 # Docker Suggar
 
+> This branch is in developement, please use the master branch only for now
+
 Docker Suggar is a command line tool, written in NodeJS.   
 It is usefull to those who are working with local or remote Docker instances and/or do not want to bother with complex Docker commands every time they need to use it.  
 

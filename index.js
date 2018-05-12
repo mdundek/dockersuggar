@@ -1,11 +1,15 @@
 "use strict"
 
+global.__basedir = __dirname;
+
 const promptController = require("./controllers/promptController");
 const dockerController = require("./controllers/dockerController");
+const dataController = require("./controllers/dataController");
+const chatController = require("./controllers/chatController");
+const rasaController = require("./chatbot/rasaController");
 const program = require('./commander-custom/commander');
 var chalk = require("chalk");
 var figlet = require('figlet');
-
 
 program
     .version('0.1.1')
@@ -230,6 +234,24 @@ program
                 await init(program);
                 console.log("");
                 await promptController.tag();
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+
+program
+    .command('pull')
+    .description('Pull a docker image from a registry')
+    .action(() => {
+        cmdValue = "pull";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.pull();
             } catch (e) {
                 console.log("");
                 console.log(e.message);
@@ -572,11 +594,79 @@ program
         })();
     });
 
+/**
+ * COMMANDS: NETWORKS 
+ */
+program
+    .command('installConversationalAgent')
+    .section("Conversational agent:")
+    .description('Install the dockersuggar conversational agent')
+    .action(() => {
+        cmdValue = "installConversationalAgent";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await rasaController.installAndSetupRasa();
+                console.log(chalk.grey("Done"));
+                process.exit(0);
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+program
+    .command('retrainModel')
+    .description('Retrain the assistant model (This will take a while)')
+    .action(() => {
+        cmdValue = "retrainModel";
+        (async() => {
+            try {
+                await init(program);
+
+                dataController.deleteModelData();
+                await rasaController.installAndSetupRasa();
+                let respondedInTime = await rasaController.trainModel(true);
+                if (!respondedInTime) {
+                    // Timed out, try again later
+                    console.log(chalk.grey("The dockersuggar model is still training. The assistant will be available as soon as the training is complete."));
+                } else {
+                    console.log(chalk.grey("Done"));
+                }
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+program
+    .command('assistant')
+    .description('Start chatbot assistant')
+    .action(() => {
+        cmdValue = "assistant";
+        (async() => {
+            try {
+                await init(program);
+                // Experimental NLU Chatbot
+                await rasaController.init();
+                chatController.init();
+                // process.exit(0);
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
 program.parse(process.argv);
 
 // If no command identified
 if (cmdValue === null) {
-    console.error('Usage: dockersuggar <command> [options]');
-    console.error('Help:  dockersuggar -h');
-    process.exit(1);
+    (async() => {
+        console.log("Usage: dockersuggar [options] <command>");
+        console.log("Help:  dockersuggar -h | dockersuggar <command> -h");
+    })();
 }

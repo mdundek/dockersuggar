@@ -1,0 +1,72 @@
+%[yes]
+    ok
+    yes
+    yes, I agree
+    i agree
+    sure
+    sure, why not
+    go ahead
+    of course
+    oh yes, please
+    oh yes please
+    yes please
+    do it
+    yes, absolutely
+    absolutely yes,
+    absolutely, yes
+    absolutely
+
+%[no]
+    no
+    no way
+    i rather not
+    no thanks
+    no no
+    oh no
+    i dont think so
+    forget it
+    no, that is all right
+    absolutely not
+    definitely not
+
+%[containers]
+    Show me all containers
+    Show me all running containers
+    List all my containers
+    I want to see all my containers
+    List running containers
+    Show containers
+    List containers
+    Display containers
+    Display running containers
+
+%[images]
+    Show me all images
+    List all my images
+    I want to see all my images
+    Show images
+    List images
+    Display images
+
+%[run_container]
+    I would like to run a new container
+    I need a container
+    I need a new instance of @[image_name] database
+    I need a @[image_name] database
+    I want to start a new @[image_name] server instance
+    Start a new container for me please
+    Please spin up a @[image_name] instance for me
+    I want to run a new container
+    I would like to start a new container instance from an image
+
+@[image_name]
+    ~[elastic]
+    debian
+    ubuntu
+    postgres
+    mysql
+
+~[elastic]
+    elasticsearch
+    elastic
+    elastic search
