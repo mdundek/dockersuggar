@@ -1,6 +1,6 @@
 {
     "name": "dockersuggar",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "description": "A CLI designed to simplify and automate your local and remote Docker commands",
     "keywords": [
         "cli",

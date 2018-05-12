@@ -483,8 +483,18 @@ exports.buildDockerfile = (settings, dockerfileData) => {
                         fs.unlinkSync('./Dockerfile.tar');
                         reject(err);
                     } else {
-                        stream.pipe(process.stdout, {
-                            end: true
+                        stream.on("data", (chunk) => {
+                            let lines = chunk.toString('utf8').trim().split("\n");
+                            lines.forEach((line) => {
+                                let json = JSON.parse(line);
+                                if (json.stream) {
+                                    console.log(json.stream);
+                                } else if (json.aux && json.aux.ID) {
+                                    console.log(json.aux.ID);
+                                } else if (json.status) {
+                                    console.log(json.status + " " + (json.id ? json.id + " " : "") + (json.progress ? ": " + json.progress : ""));
+                                }
+                            });
                         });
 
                         stream.on('end', function() {
@@ -719,6 +729,30 @@ exports.inspectNetwork = (network) => {
             }
         });
     });
+}
+
+/**
+ * run
+ * @param {*} params 
+ * @param {*} image 
+ */
+exports.createContainerFromImage = async(params, image) => {
+    var optsc = {
+        'name': params.name,
+        'Image': image.repository + ':' + image.tag,
+        'HostConfig': {
+            "AutoRemove": params.remove ? true : false,
+            'Binds': [],
+            "PortBindings": {},
+            "Links": []
+        }
+    };
+
+    populateHostConfig(params, optsc);
+    populateEnv(params, optsc);
+
+    let container = await self.createContainer(optsc, params);
+    return container;
 }
 
 /**
@@ -1016,16 +1050,7 @@ exports.createAndStartContainer = (optsc, params) => {
     return new Promise((resolve, reject) => {
         (async() => {
             // Create container
-            let container = await self.createContainer(optsc);
-
-            if (params.network) {
-                try {
-                    await self.linkToNetwork({ "container id": container.id }, { Id: params.networkId });
-                } catch (e) {
-                    reject(e);
-                    return;
-                }
-            }
+            let container = await self.createContainer(optsc, params);
 
             // Start container
             container.start(function(err, data) {
@@ -1043,15 +1068,28 @@ exports.createAndStartContainer = (optsc, params) => {
  * createContainer
  * @param {*} optsc 
  */
-exports.createContainer = (optsc) => {
+exports.createContainer = (optsc, params) => {
     return new Promise((resolve, reject) => {
+
         docker.createContainer(optsc, (err, container) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(container);
-            }
+            (async() => {
+                if (err) {
+                    reject(err);
+                } else {
+                    if (params.network) {
+
+                        try {
+                            await self.linkToNetwork({ "container id": container.id }, { Id: params.networkId });
+                        } catch (e) {
+                            reject(e);
+                            return;
+                        }
+                    }
+                    resolve(container);
+                }
+            })();
         });
+
     });
 }
 

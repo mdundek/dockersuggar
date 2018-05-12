@@ -12,7 +12,7 @@ var chalk = require("chalk");
 var figlet = require('figlet');
 
 program
-    .version('0.1.1')
+    .version('0.1.2')
     .description("\n" + figlet.textSync('DockerSuggar'))
     .option('-r, --remote <name>', 'Execute command on a remote docker instance');
 
@@ -241,7 +241,6 @@ program
         })();
     });
 
-
 program
     .command('pull')
     .description('Pull a docker image from a registry')
@@ -320,6 +319,24 @@ program
     });
 
 program
+    .command('create')
+    .description('Create a container from image')
+    .action(() => {
+        cmdValue = "create";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.create();
+                process.exit(0);
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+program
     .command('run')
     .alias('r')
     .description('Run container from image')
@@ -367,6 +384,42 @@ program
                 await init(program);
                 console.log("");
                 await promptController.stop();
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+program
+    .command('pauseContainer')
+    .alias('pause')
+    .description('Pause running docker container')
+    .action(() => {
+        cmdValue = "pauseContainer";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.pause();
+            } catch (e) {
+                console.log("");
+                console.log(e.message);
+            }
+        })();
+    });
+
+program
+    .command('unpauseContainer')
+    .alias('unpause')
+    .description('Unpause running docker container')
+    .action(() => {
+        cmdValue = "unpauseContainer";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.unpause();
             } catch (e) {
                 console.log("");
                 console.log(e.message);

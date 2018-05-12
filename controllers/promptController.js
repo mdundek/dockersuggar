@@ -247,6 +247,70 @@ module.exports = {
         console.log(chalk.grey("Done"));
     },
     /**
+     * pause
+     */
+    pause: async() => {
+        let containers = await dockerController.listContainers();
+        containers = containers.filter(c => c.up && c.state != "paused");
+        if (containers.length == 0) {
+            console.log(chalk.grey("There are no running containers"));
+            return;
+        }
+        displayAvailableContainers(containers, true);
+        console.log("");
+
+        const questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Container index to pause:',
+            validate: (index) => {
+                if (validateIndexResponse(containers, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let qResponses = await prompt(questions);
+
+        let container = containers[parseInt(qResponses.index) - 1];
+        await dockerController.pauseContainer(container);
+        console.log(chalk.grey("Done"));
+    },
+    /**
+     * unpause
+     */
+    unpause: async() => {
+        let containers = await dockerController.listContainers();
+        containers = containers.filter(c => c.state == "paused");
+        if (containers.length == 0) {
+            console.log(chalk.grey("There are no paused containers"));
+            return;
+        }
+        displayAvailableContainers(containers, true);
+        console.log("");
+
+        const questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Container index to unpause:',
+            validate: (index) => {
+                if (validateIndexResponse(containers, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let qResponses = await prompt(questions);
+
+        let container = containers[parseInt(qResponses.index) - 1];
+        await dockerController.unpauseContainer(container);
+        console.log(chalk.grey("Done"));
+    },
+    /**
      * new
      */
     new: async() => {
@@ -684,6 +748,192 @@ module.exports = {
             displayInspectData("bindings", data.bindings);
             displayInspectData("volumes", data.volumes);
         }
+
+        console.log(chalk.grey("\nDone"));
+    },
+    /**
+     * create
+     */
+    create: async() => {
+        let images = await dockerController.listImages();
+        if (images.length == 0) {
+            console.log(chalk.grey("No images found"));
+            return;
+        }
+        displayAvailableImages(images, true);
+        console.log("");
+
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Image to create container from:',
+            validate: (index) => {
+                if (validateIndexResponse(images, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }];
+
+        let runImageIndex = await prompt(questions);
+
+        let sImage = images[parseInt(runImageIndex.index) - 1];
+        let previousRunSettings = await dataController.lookupImageRunConfig(sImage);
+        let imageConfig = await dataController.lookupImageConfig(sImage);
+        if (imageConfig && imageConfig.config) {
+            console.log("---------------------- Image documentation ----------------------");
+
+            if (imageConfig.config.description.trim().length > 0) {
+                console.log("");
+                console.log(chalk.yellow("Description:"));
+                console.log(imageConfig.config.description);
+            }
+            let ports = Object.keys(imageConfig.config.ports);
+            let volumes = Object.keys(imageConfig.config.volumes);
+            let envs = Object.keys(imageConfig.config.env);
+            if (ports.length > 0) {
+                console.log("");
+                console.log(chalk.yellow("Exposed ports:"));
+                ports.forEach((port) => {
+                    console.log(chalk.grey(port) + " (" + imageConfig.config.ports[port] + ")");
+                });
+            }
+            if (volumes.length > 0) {
+                console.log("");
+                console.log(chalk.yellow("Volumes:"));
+                volumes.forEach((volume) => {
+                    console.log(chalk.grey(volume) + " (" + imageConfig.config.volumes[volume] + ")");
+                });
+            }
+            if (envs.length > 0) {
+                console.log("");
+                console.log(chalk.yellow("Environement variables:"));
+                envs.forEach((env) => {
+                    console.log(chalk.grey(env) + " (" + imageConfig.config.env[env] + ")");
+                });
+            }
+            console.log("-----------------------------------------------------------------");
+            console.log("");
+        }
+
+        let existingContainers = await dockerController.listContainers();
+        // ************ PROMPT: Init detailed questions params ************
+        questions = [{
+            type: 'input',
+            name: 'name',
+            message: 'Container name:',
+            validate: (data) => {
+                if (data.trim().length == 0) {
+                    return "Required";
+                } else if (data.match(specialCharactersRegex) == null) {
+                    return "No special characters allowed";
+                } else if (existingContainers.find(c => c.names.toLowerCase() == "/" + data.toLowerCase()) != null) {
+                    return "Container name already in use";
+                } else {
+                    return true;
+                }
+            }
+        }, {
+            type: 'confirm',
+            name: 'network',
+            message: 'Link the container to an existing network:',
+            default: false
+        }];
+        // Populate default values for those params if a previous run has been found
+        if (previousRunSettings) {
+            questions = questions.map((s) => {
+                s.default = previousRunSettings.settings[s.name];
+                return s;
+            });
+        }
+
+        let runImageData = await prompt(questions);
+
+        if (runImageData.network) {
+            let networks = await dockerController.listNetworks();
+            if (networks.length == 0) {
+                console.log(chalk.grey("No networks found"));
+                return;
+            }
+
+            questions = [{
+                type: 'list',
+                name: 'networkName',
+                message: 'Network to link container to:',
+                choices: []
+            }];
+
+            networks.forEach(n => {
+                questions[0].choices.push(n.Name);
+            });
+
+            if (previousRunSettings) {
+                let previousNetwork = networks.find(n => n.Id == previousRunSettings.settings["networkId"]);
+                if (previousNetwork) {
+                    questions[0].default = previousNetwork.Name;
+                }
+            }
+            let networkNameAnswer = await prompt(questions);
+            let network = networks.find(n => n.Name == networkNameAnswer.networkName);
+
+            runImageData.networkId = network.Id;
+        }
+
+        // ************ PROMPT: Ports ************
+        let pSettings = {};
+        if (previousRunSettings && previousRunSettings.settings.ports && Object.keys(previousRunSettings.settings.ports).length > 0) {
+            pSettings = previousRunSettings.settings.ports;
+        } else {
+            // Get exposed ports from Dockerfile
+            let ports = dataController.extractExposedPorts(sImage);
+            if (ports && ports.length > 0) {
+                ports.map(p => {
+                    pSettings[p] = p;
+                });
+            }
+        }
+
+        let portResult = await promptForRepetingKeyValues({
+            "intro": "Port mapping",
+            "key": "Container port",
+            "value": "Host port",
+            "valuePostShort": " (Host)"
+        }, pSettings, " : ");
+        runImageData.ports = portResult;
+
+        // ************ PROMPT: Volumes ************
+        let vSettings = {};
+        if (previousRunSettings && previousRunSettings.settings.volumes && Object.keys(previousRunSettings.settings.volumes).length > 0) {
+            vSettings = previousRunSettings.settings.volumes;
+        } else {
+            // Get exposed volumes from Dockerfile
+            let volumes = dataController.extractDockerfileVolumes(sImage);
+            if (volumes && volumes.length > 0) {
+                volumes.map(v => {
+                    vSettings[v] = v;
+                });
+            }
+        }
+
+        let volResult = await promptForRepetingKeyValues({
+            "intro": "Volume mapping",
+            "key": "Container volume path",
+            "value": "Host volume path",
+            "valuePostShort": " (Host)"
+        }, vSettings, " : ", true);
+        runImageData.volumes = volResult;
+
+        // ************ PROMPT: Environement variables ************
+        let envResult = await promptForRepetingKeyValues({
+            "intro": "Environement variables",
+            "key": "Environement variable name",
+            "value": "Environement variable value"
+        }, previousRunSettings && previousRunSettings.settings.env ? previousRunSettings.settings.env : null);
+        runImageData.env = envResult;
+
+        // Now run docker command
+        let container = await dockerController.createContainerFromImage(runImageData, sImage);
 
         console.log(chalk.grey("\nDone"));
     },
