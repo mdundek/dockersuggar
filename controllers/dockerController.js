@@ -132,6 +132,50 @@ exports.listImages = () => {
 };
 
 /**
+ * findImagesByName
+ * @param {*} name 
+ */
+exports.findImagesByName = (name) => {
+    let imgDetails = name.split(":");
+    return new Promise((resolve, reject) => {
+        docker.listImages((err, images) => {
+            if (err) {
+                reject(err);
+            } else {
+                let imageArray = [];
+                images.forEach(function(imageInfo) {
+                    imageInfo.RepoTags.forEach(rt => {
+                        let repoTagDetails = rt.split(":");
+                        if (imgDetails.length == 1) {
+                            if (imgDetails[0] == repoTagDetails[0]) {
+                                imageArray.push({
+                                    "repository": repoTagDetails[0],
+                                    "tag": repoTagDetails[1],
+                                    "image id": imageInfo.Id,
+                                    "size": (imageInfo.Size / 1024 / 1024).toFixed(2),
+                                    "created": imageInfo.Created
+                                });
+                            }
+                        } else if (imgDetails.length == 2) {
+                            if (imgDetails[0] == repoTagDetails[0] && imgDetails[1] == repoTagDetails[1]) {
+                                imageArray.push({
+                                    "repository": repoTagDetails[0],
+                                    "tag": repoTagDetails[1],
+                                    "image id": imageInfo.Id,
+                                    "size": (imageInfo.Size / 1024 / 1024).toFixed(2),
+                                    "created": imageInfo.Created
+                                });
+                            }
+                        }
+                    })
+                });
+                resolve(imageArray);
+            }
+        });
+    });
+};
+
+/**
  * listNetworks
  */
 exports.listNetworks = () => {
@@ -164,13 +208,11 @@ exports.listContainers = () => {
             } else {
                 (async() => {
                     let images = await self.listImages();
-
                     containers = containers.map(c => {
                         let cImage = images.find(i => i["image id"] == c.ImageID);
                         if (!cImage) {
                             cImage = images.find(i => (i.repository + ":" + i.tag) == c.Image);
                         }
-
                         return {
                             "container id": c.Id,
                             "names": c.Names[0],

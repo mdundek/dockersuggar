@@ -1,0 +1,6 @@
+{
+    "id": "configure_container",
+    "stack": [{
+        "import": "container_configure_options"
+    }]
+}

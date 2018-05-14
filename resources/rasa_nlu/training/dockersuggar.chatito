@@ -12,7 +12,7 @@
     yes please
     do it
     yes, absolutely
-    absolutely yes,
+    absolutely yes
     absolutely, yes
     absolutely
 
@@ -24,10 +24,47 @@
     no no
     oh no
     i dont think so
-    forget it
     no, that is all right
     absolutely not
     definitely not
+
+%[change_mind]
+    Nevermind
+    I need something else
+    I don't want to continue with this
+    Forget about this
+    Forget it
+    I have another question
+    I have another request
+    I changed my mind
+
+%[exit]
+    Bye
+    Bye bye
+    Exit
+    I don't need you anymore
+
+%[done]
+    I am done
+    I am finished
+    All good
+    No, I am finished
+    No, I am done
+    No, that's it
+    No, that's all
+    I am good
+    No, I am good
+    I am done for now
+
+%[unhappy]
+    You suck
+    This is not working
+    I hate you
+
+%[insulting]
+    Asshole
+    You are an ass
+    Fuck you
 
 %[containers]
     Show me all containers
@@ -59,12 +96,59 @@
     I want to run a new container
     I would like to start a new container instance from an image
 
+%[what_are_settings]
+    What are those settings?
+    What @[setting_type] did I use?
+    What are the @[setting_type] use?
+    What are the @[setting_type] mapped?
+    What value is set for the @[setting_type]?
+    What @[setting_type] did I map?
+    What was the @[setting_type] again?
+    Can you show me those settings?
+    Remind me what those settings are please
+    Show me the settings
+
+%[configure_port]
+    Actually I would like to bind a different port
+    I want to change the port mapping
+    Let's change the port
+    I need a different port
+    Let's use a different port
+    I want to map a port
+    I want to map port 3456 to the host port 6666
+    Map port 5555 to port 7777
+    Bind port 9999 to host port 4444
+    Bind host port 5544 to port 9999
+    Map an exposed port
+
+%[help]
+    I need help
+    What can you do for me
+    What do you know
+    What can you do
+    What is your purpose
+    Can you help with this
+    How can you help me
+    What am I supposed to ask for
+    What do you expect from me
+    Help me
+
 @[image_name]
     ~[elastic]
     debian
     ubuntu
     postgres
     mysql
+
+@[setting_type]
+    port
+    ports
+    volume
+    volumes
+    network
+    networks
+    environement variables
+    environement variable
 
 ~[elastic]
     elasticsearch

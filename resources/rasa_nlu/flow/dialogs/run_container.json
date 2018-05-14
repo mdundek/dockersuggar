@@ -1,0 +1,30 @@
+{
+    "id": "level_run_container",
+    "stack": [{
+        "name": "previous_settings_found",
+        "condition": {
+            "intent": null,
+            "entities": [],
+            "attributes": [{
+                "name": "found_container_settings",
+                "operator": "!=",
+                "value": null
+            }]
+        },
+        "responses": ["Ok, @[image_name] it is. I fould previously used settings, would you like to reuse those?"],
+        "dialog": "image_settings_reuse"
+    }, {
+        "name": "no_previous_settings",
+        "condition": {
+            "intent": null,
+            "entities": [],
+            "attributes": [{
+                "name": "found_container_settings",
+                "operator": "==",
+                "value": null
+            }]
+        },
+        "responses": ["Is there anything you wish to configure?"],
+        "dialog": "configure_container"
+    }]
+}

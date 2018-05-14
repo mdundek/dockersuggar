@@ -6,7 +6,7 @@ const promptController = require("./controllers/promptController");
 const dockerController = require("./controllers/dockerController");
 const dataController = require("./controllers/dataController");
 const chatController = require("./controllers/chatController");
-const rasaController = require("./chatbot/rasaController");
+const rasaController = require("./controllers/rasaController");
 const program = require('./commander-custom/commander');
 var chalk = require("chalk");
 var figlet = require('figlet');
@@ -21,13 +21,8 @@ program
  * @param {*} p 
  */
 let init = async(p) => {
-    try {
-        await promptController.init();
-        await dockerController.init(p.remote);
-    } catch (err) {
-        console.log(chalk.red("ERROR: "), err.message);
-        throw e;
-    }
+    await promptController.init();
+    await dockerController.init(p.remote);
 }
 
 let cmdValue = null;
@@ -49,7 +44,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -67,7 +62,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -85,7 +80,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -104,7 +99,7 @@ program
                 await promptController.updateSettings("dockerimgbasepath");
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -123,7 +118,7 @@ program
                 await promptController.dockerfiles();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
             console.log("");
         })();
@@ -142,7 +137,7 @@ program
                 await promptController.new();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -160,7 +155,7 @@ program
                 await promptController.openDockerfile();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -178,7 +173,7 @@ program
                 await promptController.build();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -201,7 +196,7 @@ program
                 console.log("");
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -218,7 +213,7 @@ program
                 await promptController.commentImage();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -236,7 +231,7 @@ program
                 await promptController.tag();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -253,7 +248,7 @@ program
                 await promptController.pull();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -290,7 +285,7 @@ program
                 await promptController.deleteImage();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -313,7 +308,7 @@ program
                 console.log("");
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -331,7 +326,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -350,7 +345,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -368,7 +363,7 @@ program
                 await promptController.start();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -386,7 +381,7 @@ program
                 await promptController.stop();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -404,7 +399,7 @@ program
                 await promptController.pause();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -422,7 +417,7 @@ program
                 await promptController.unpause();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -440,7 +435,7 @@ program
                 await promptController.deleteContainer();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -469,7 +464,7 @@ program
                 await promptController.inspectContainer(target);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -487,7 +482,7 @@ program
                 await promptController.containerLogs();
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -505,7 +500,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -524,7 +519,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -547,7 +542,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -566,7 +561,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -585,7 +580,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -604,7 +599,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -623,7 +618,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -642,7 +637,7 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -665,16 +660,16 @@ program
                 process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
 
 program
-    .command('retrainModel')
-    .description('Retrain the assistant model (This will take a while)')
+    .command('trainModel')
+    .description('Train the assistant model (This will take a while)')
     .action(() => {
-        cmdValue = "retrainModel";
+        cmdValue = "trainModel";
         (async() => {
             try {
                 await init(program);
@@ -690,7 +685,7 @@ program
                 }
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });
@@ -709,7 +704,7 @@ program
                 // process.exit(0);
             } catch (e) {
                 console.log("");
-                console.log(e.message);
+                console.log(chalk.red("ERROR: "), e.message);
             }
         })();
     });

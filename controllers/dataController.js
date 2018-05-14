@@ -19,7 +19,8 @@ if (!fs.existsSync(nluFolder)) {
 }
 exports.NLU_DATA_FOLDER = path.join(nluFolder, 'data');
 exports.NLU_PROJECT_FOLDER = path.join(nluFolder, 'projects');
-exports.NLU_PROJECT_DOCKERSUGGAR_FOLDER = path.join(this.NLU_PROJECT_FOLDER, 'dockersuggar');
+exports.NLU_PROJECT_DOCKERSUGGAR_TS_FOLDER = path.join(this.NLU_PROJECT_FOLDER, 'dockersuggar_tensorflow');
+exports.NLU_PROJECT_DOCKERSUGGAR_SP_FOLDER = path.join(this.NLU_PROJECT_FOLDER, 'dockersuggar_spacy');
 exports.NLU_LOGS_FOLDER = path.join(nluFolder, 'logs');
 if (!fs.existsSync(this.NLU_LOGS_FOLDER)) {
     fs.mkdirSync(this.NLU_LOGS_FOLDER);
@@ -75,7 +76,6 @@ exports.init = () => {
  */
 exports.destroyTestDb = () => {
     return new Promise((resolve, reject) => {
-        console.log("ATTTEMPT TO DESTROY...");
         fs.unlinkSync(path.join(dsDbFolder, 'ImageRunConfigs.test.db'));
         fs.unlinkSync(path.join(dsDbFolder, 'ImageConfigs.test.db'));
         fs.unlinkSync(path.join(dsDbFolder, 'Settings.test.db'));
@@ -97,7 +97,8 @@ exports.setBaseImagesPath = (fpath) => {
  * deleteModelData
  */
 exports.deleteModelData = () => {
-    fse.removeSync(this.NLU_PROJECT_DOCKERSUGGAR_FOLDER);
+    fse.removeSync(this.NLU_PROJECT_DOCKERSUGGAR_TS_FOLDER);
+    fse.removeSync(this.NLU_PROJECT_DOCKERSUGGAR_SP_FOLDER);
 };
 
 /**

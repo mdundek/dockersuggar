@@ -12,10 +12,6 @@
             "class": "rasa_nlu.tokenizers.spacy_tokenizer.SpacyTokenizer"
         },
         {
-            "name": "intent_featurizer_spacy",
-            "class": "rasa_nlu.featurizers.spacy_featurizer.SpacyFeaturizer"
-        },
-        {
             "BILOU_flag": true,
             "features": [
                 [
@@ -56,31 +52,9 @@
             "name": "ner_synonyms",
             "synonyms_file": "entity_synonyms.json",
             "class": "rasa_nlu.extractors.entity_synonyms.EntitySynonymMapper"
-        },
-        {
-            "C": [
-                1,
-                2,
-                5,
-                10,
-                20,
-                100
-            ],
-            "kernels": [
-                "linear"
-            ],
-            "max_cross_validation_folds": 5,
-            "name": "intent_classifier_sklearn",
-            "classifier_file": "intent_classifier_sklearn.pkl",
-            "class": "rasa_nlu.classifiers.sklearn_intent_classifier.SklearnIntentClassifier"
-        },
-        {
-            "dimensions": null,
-            "name": "ner_duckling",
-            "class": "rasa_nlu.extractors.duckling_extractor.DucklingExtractor"
         }
     ],
     "training_data": "training_data.json",
-    "trained_at": "20180511-152852",
+    "trained_at": "20180514-133434",
     "rasa_nlu_version": "0.12.3"
 }

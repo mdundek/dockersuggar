@@ -1,35 +1,99 @@
 const Bot = new require("./Bot");
 var { prompt } = require('inquirer');
 const chalk = require("chalk");
+const path = require("path");
+const fs = require("fs");
+let globalStack = null
+
+let ENTITY_MATCH = /@\[(.*?)\]/;
+let ATTRIBUTE_MATCH = /&\[(.*?)\]/;
 
 /**
  * BotDialog
  */
-let BotDialog = function(DialogJson) {
-    this.bot = new Bot({
-        "rasa_uri": "http://localhost:5000",
-        "threshold": 0.49
-    });
-    this.dialogJson = DialogJson;
+let BotDialog = function(config) {
+    // Init BotDialog config object
+    let defaults = {
+        "flowBasePath": "./flow",
+        "flowName": "default"
+    }
+    if (config) {
+        if (config.flowBasePath) {
+            defaults.flowBasePath = config.flowBasePath;
+        }
+        if (config.flowName) {
+            defaults.flowName = config.flowName;
+        }
+    }
+    this.config = defaults;
+
+    let globalJsonPath = path.join(this.config.flowBasePath, "stacks", "globals.json");
+    if (fs.existsSync(globalJsonPath)) {
+        globalStack = require(globalJsonPath);
+    } else {
+        globalStack = [];
+    }
+
+    // Init Bot config object
+    let botConfig = {};
+    if (config.rasaUri) {
+        botConfig.rasaUri = config.rasaUri;
+    }
+    if (config.ducklingUri) {
+        botConfig.ducklingUri = config.ducklingUri;
+    }
+    if (config.ducklingLocale) {
+        botConfig.ducklingLocale = config.ducklingLocale;
+    }
+    if (config.intentProjectModel) {
+        botConfig.intentProjectModel = config.intentProjectModel;
+    }
+    if (config.entityProjectModel) {
+        botConfig.entityProjectModel = config.entityProjectModel;
+    }
+    if (config.baseNluConfidenceThreshold) {
+        botConfig.threshold = config.baseNluConfidenceThreshold;
+    }
+    this.bot = new Bot(botConfig);
+
+    this.dialogJson = resolveDialogTree.call(this);
+
+    // console.log(JSON.stringify(this.dialogJson, null, 4));
+
     this.actionHandlers = {};
+    this.eventCallbacks = {
+        "text": []
+    };
     this.slotValidatorHandlers = {};
     this.session = {
-        "position": this.dialogJson.dialog.id,
         "entities": {},
         "attributes": {}
     };
+
+    setPosition.call(this, this.dialogJson.dialog.id, this.dialogJson.dialog.nlu_threshold != undefined ? this.dialogJson.dialog.nlu_threshold : null);
 }
 
 /**
  * start
  */
 BotDialog.prototype.start = function() {
-    this.stack = this.dialogJson.dialog.stack;
+    setStack.call(this, this.dialogJson.dialog.stack);
     stackMatch = this.stack.find(stackObj => stackObj.name == "&welcome");
 
     (async() => {
         await processStackMatch.call(this, stackMatch);
     })();
+}
+
+/**
+ * on
+ * @param {*} event 
+ * @param {*} cb 
+ */
+BotDialog.prototype.on = function(event, cb) {
+    if (this.eventCallbacks[event]) {
+        this.eventCallbacks[event].push(cb);
+    }
 }
 
 /**
@@ -51,31 +115,100 @@ BotDialog.prototype.addSlotValidator = function(validatorName, handler) {
 }
 
 /**
+ * setStack
+ * @param {*} stack 
+ */
+let setStack = function(stack) {
+    let extraStack = globalStack.map((s) => {
+        if (s.name.indexOf("&") == -1) {
+            let updStack = Object.assign({}, s);
+            updStack.name = this.session.position + "_" + updStack.name;
+            return updStack;
+        } else {
+            return s;
+        }
+    });
+    this.stack = stack.concat(extraStack);
+}
+
+/**
+ * setPosition
+ * @param {*} id 
+ * @param {*} threshold 
+ */
+let setPosition = function(id, threshold) {
+    this.session.position = id;
+    this.session.nluThreshold = threshold;
+}
+
+/**
+ * resolveDialogTree
+ * @param {*} configBaseFolder 
+ */
+let resolveDialogTree = function() {
+    function iterateStackNode(stackNode) {
+        if (stackNode.dialog) {
+            if (typeof stackNode.dialog == "string") {
+                stackNode.dialog = require(path.join(this.config.flowBasePath, "dialogs", stackNode.dialog + ".json"));
+            }
+            stackNode.dialog.stack.forEach(iterateStackNode.bind(this));
+        }
+    }
+
+    function iterateStackList(stackList) {
+        for (let i = 0; i < stackList.length; i++) {
+            if (stackList[i].import) {
+                let importStacks = require(path.join(this.config.flowBasePath, "stacks", stackList[i].import+".json"));
+                // Remove import placeholder
+                stackList.splice(i, 1);
+                // Insert imported objects
+                stackList.splice(i, 0, ...importStacks);
+                // Reiterate at same index
+                i--;
+            } else if (stackList[i].dialog) {
+                iterateStackList.call(this, stackList[i].dialog.stack);
+            }
+        }
+    }
+
+    let jsonTree = require(path.join(this.config.flowBasePath, this.config.flowName + ".json"));
+    iterateStackNode.call(this, jsonTree);
+    iterateStackList.call(this, jsonTree.dialog.stack);
+
+    return jsonTree;
+}
+
+/**
  * processStackMatch
  * @param {*} stackMatch 
  */
-let processStackMatch = function(stackMatch) {
+let processStackMatch = function(stackMatch, botResult) {
     return new Promise((resolve, reject) => {
         (async() => {
             // *************** PROCESS SLOTS ********************
+            await processPreActions.call(this, stackMatch, botResult ? botResult : null);
             await processSlots.call(this, stackMatch);
-            await processActions.call(this, stackMatch);
 
             // *************** DISPLAY POTENTIAL RESPONSE ********************
             if (stackMatch.responses && stackMatch.responses.length > 0) {
-                console.log(chalk.yellow(stackMatch.responses[Math.floor(Math.random() * stackMatch.responses.length)]));
+                await textOutput.call(this, (stackMatch.responses[Math.floor(Math.random() * stackMatch.responses.length)]));
             }
+
+            await processActions.call(this, stackMatch, botResult ? botResult : null);
 
             // *************** NOW LET THE USER INPUT NEXT QUESTION ********************
             if (stackMatch.jump) {
-                await jumpToStem.call(this, stackMatch.jump);
+                // Process post stack actions
+                await processPostActions.call(this, stackMatch, botResult ? botResult : null);
+
+                await jumpToStep.call(this, stackMatch.jump);
             } else {
                 // If stackMatch has a child dialog, change session position
                 if (stackMatch.dialog) {
                     // StackSlot has NO message for user, we look for matching slot in new stack to move forward in the dialog
                     if (!stackMatch.responses || stackMatch.responses.length == 0) {
                         // Process post stack actions
-                        await processPostActions.call(this, stackMatch);
+                        await processPostActions.call(this, stackMatch, botResult ? botResult : null);
                         // Position in new stack level
                         await initNewDialogTree.call(this, stackMatch);
                         // Pass empty NLU response to trigger detection without an intent
@@ -90,12 +223,15 @@ let processStackMatch = function(stackMatch) {
                         }
                     } else {
                         // Process post stack actions
-                        await processPostActions.call(this, stackMatch);
+                        await processPostActions.call(this, stackMatch, botResult ? botResult : null);
                         // Position in new stack level
                         await initNewDialogTree.call(this, stackMatch);
 
-                        this.stack = stackMatch.dialog.stack;
+                        setStack.call(this, stackMatch.dialog.stack);
                     }
+                } else {
+                    // Process post stack actions
+                    await processPostActions.call(this, stackMatch, botResult ? botResult : null);
                 }
                 // StackSlot has a message for user, we ask for a response right away
                 if (stackMatch.responses && stackMatch.responses.length > 0) {
@@ -114,7 +250,7 @@ let processNLUResponse = function(nluResponse) {
     let match = null;
     let dialogStacks = getDialogStacks(this.dialogJson.dialog, this.session.position);
     if (dialogStacks && dialogStacks.length == 1) {
-        this.stack = dialogStacks[0];
+        setStack.call(this, dialogStacks[0]);
         match = evaluateStackObjects.call(this, nluResponse.intent);
     }
     return match;
@@ -124,9 +260,9 @@ let processNLUResponse = function(nluResponse) {
  * 
  * @param {*} jump 
  */
-let jumpToStem = async function(jump) {
+let jumpToStep = async function(jump) {
     let jumpMatches = getStackAndDialogItems.call(this, jump.name, this.dialogJson.dialog);
-    this.session.position = jumpMatches[0].position;
+    setPosition.call(this, jumpMatches[0].position, jumpMatches[0].nluThreshold);
     await processStackMatch.call(this, jumpMatches[0].stackItem);
 }
 
@@ -243,7 +379,8 @@ let getStackAndDialogItems = function(name, dialog, matchArray) {
         if (stackItem.name == name) {
             let item = {
                 "position": dialog.id,
-                "stackItem": stackItem
+                "stackItem": stackItem,
+                "nluThreshold": dialog.nlu_threshold != undefined ? dialog.nlu_threshold : null
             };
             matchArray = matchArray ? matchArray.concat(item) : [item];
         }
@@ -266,7 +403,7 @@ let processSlots = async function(stackMatch) {
             let _proceed = false;
             while (!_proceed) {
                 if (this.session.entities[slot.entity] == undefined) {
-                    console.log(chalk.yellow(slot.questions[Math.floor(Math.random() * slot.questions.length)]));
+                    await textOutput.call(this, slot.questions[Math.floor(Math.random() * slot.questions.length)]);
                     // Use provided action to fill slot
                     if (slot.action) {
                         if (this.actionHandlers[slot.action]) {
@@ -292,7 +429,6 @@ let processSlots = async function(stackMatch) {
                                 }
                             }
                         });
-                        console.log("");
 
                         if (this.slotValidatorHandlers[slot.entity]) {
                             let valideResponse = await this.slotValidatorHandlers[slot.entity](slotResponse.slotValue);
@@ -301,9 +437,9 @@ let processSlots = async function(stackMatch) {
                                 _proceed = true;
                             } else {
                                 if (slot.invalideResponses && slot.invalideResponses.length > 0) {
-                                    console.log(chalk.yellow(slot.invalideResponses[Math.floor(Math.random() * slot.invalideResponses.length)]));
+                                    await textOutput.call(this, slot.invalideResponses[Math.floor(Math.random() * slot.invalideResponses.length)]);
                                 } else {
-                                    console.log(chalk.yellow("I do not understand."));
+                                    await textOutput.call(this, "I do not understand.");
                                 }
                             }
                         } else {
@@ -319,9 +455,9 @@ let processSlots = async function(stackMatch) {
                             _proceed = true;
                         } else {
                             if (slot.invalideResponses && slot.invalideResponses.length > 0) {
-                                console.log(chalk.yellow(slot.invalideResponses[Math.floor(Math.random() * slot.invalideResponses.length)]));
+                                await textOutput.call(this, slot.invalideResponses[Math.floor(Math.random() * slot.invalideResponses.length)]);
                             } else {
-                                console.log(chalk.yellow("I do not understand."));
+                                await textOutput.call(this, "I do not understand.");
                             }
                             delete this.session.entities[slot.entity];
                         }
@@ -338,12 +474,26 @@ let processSlots = async function(stackMatch) {
  * processActions
  * @param {*} stackMatch 
  */
-let processActions = async function(stackMatch) {
+let processActions = async function(stackMatch, botResponse) {
     if (stackMatch.action) {
         if (this.actionHandlers[stackMatch.action]) {
-            await this.actionHandlers[stackMatch.action](this.session);
+            await this.actionHandlers[stackMatch.action](this.session, botResponse);
         } else {
             throw new Error("Missing action handler: " + stackMatch.action);
+        }
+    }
+}
+
+/**
+ * processPreActions
+ * @param {*} stackMatch 
+ */
+let processPreActions = async function(stackMatch, botResponse) {
+    if (stackMatch.preAction) {
+        if (this.actionHandlers[stackMatch.preAction]) {
+            await this.actionHandlers[stackMatch.preAction](this.session, botResponse);
+        } else {
+            throw new Error("Missing action handler: " + stackMatch.preAction);
         }
     }
 }
@@ -352,10 +502,10 @@ let processActions = async function(stackMatch) {
  * processPostActions
  * @param {*} stackMatch 
  */
-let processPostActions = async function(stackMatch) {
+let processPostActions = async function(stackMatch, botResponse) {
     if (stackMatch.postAction) {
         if (this.actionHandlers[stackMatch.postAction]) {
-            await this.actionHandlers[stackMatch.postAction](this.session);
+            await this.actionHandlers[stackMatch.postAction](this.session, botResponse);
         } else {
             throw new Error("Missing action handler: " + stackMatch.postAction);
         }
@@ -367,12 +517,35 @@ let processPostActions = async function(stackMatch) {
  * @param {*} stackMatch 
  */
 let initNewDialogTree = async function(stackMatch) {
-    this.session.position = stackMatch.dialog.id;
+    setPosition.call(this, stackMatch.dialog.id, stackMatch.dialog.nlu_threshold != undefined ? stackMatch.dialog.nlu_threshold : null);
 
     // If new Dialog stack has a welcome node, we display it's text content first
     let welcomeNode = stackMatch.dialog.stack.find(stackObj => stackObj.name == "&welcome");
     if (welcomeNode) {
-        console.log(chalk.yellow(welcomeNode.responses[Math.floor(Math.random() * welcomeNode.responses.length)]));
+        textOutput.call(this, welcomeNode.responses[Math.floor(Math.random() * welcomeNode.responses.length)]);
+    }
+}
+
+/**
+ * textOutput
+ * @param {*} text 
+ */
+let textOutput = async function(text) {
+    let match = ATTRIBUTE_MATCH.exec(text);
+    if (match && match.length == 2) {
+        text = text.split(match[0]).join(this.session.attributes[match[1]]);
+    }
+    match = ENTITY_MATCH.exec(text);
+    if (match && match.length == 2) {
+        text = text.split(match[0]).join(this.session.entities[match[1]]);
+    }
+
+    if (this.eventCallbacks.text.length > 0) {
+        for (let i = 0; i < this.eventCallbacks.text.length; i++) {
+            await this.eventCallbacks.text[i](text, this.session);
+        }
+    } else {
+        console.log(chalk.yellow(text));
     }
 }
 
@@ -387,10 +560,15 @@ let queryUserInputAndEvaluate = async function(stackMatch) {
         name: 'userInput',
         message: ':'
     });
-    console.log("");
+
+    // Proceed only if there is some text for us
+    if (promptResponse.userInput.trim().length == 0) {
+        await queryUserInputAndEvaluate.call(this, stackMatch);
+        return;
+    }
 
     // Ask NLU engine to evaluate user text input
-    let botResponse = await this.bot.say({ "text": promptResponse.userInput });
+    let botResponse = await this.bot.say({ "text": promptResponse.userInput, "threshold": this.session.nluThreshold });
 
     // If intent detected by NLU engine
     if (botResponse.intent) {
@@ -406,10 +584,7 @@ let queryUserInputAndEvaluate = async function(stackMatch) {
         // Look in current dialog stack for a match, if none found the $otherwise node will be returned
         stackMatch = processNLUResponse.call(this, botResponse);
         if (stackMatch) {
-            // Process post stack actions
-            await processPostActions.call(this, stackMatch);
-
-            await processStackMatch.call(this, stackMatch);
+            await processStackMatch.call(this, stackMatch, botResponse);
         } else {
             await processStackMatch.call(this, {
                 "name": "&otherwise",

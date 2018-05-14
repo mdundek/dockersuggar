@@ -1,0 +1,60 @@
+{
+    "id": "level_image_settings_reuse",
+    "stack": [{
+            "name": "do_use_previous_settings",
+            "condition": {
+                "intent": "yes",
+                "entities": [],
+                "attributes": []
+            },
+            "responses": ["Ok all good then"]
+        }, {
+            "name": "done_with_settings",
+            "condition": {
+                "intent": "done",
+                "entities": [],
+                "attributes": []
+            },
+            "responses": ["Ok all good then"]
+        }, {
+            "name": "not_use_previous_settings",
+            "condition": {
+                "intent": "no",
+                "entities": [],
+                "attributes": []
+            },
+            "responses": ["ok, is there anything you would like to configure for this container? Ports? Environement variables? Anyhing else?"]
+        },
+
+        {
+            "import": "container_configure_options"
+        },
+        {
+            "name": "what_are_specific_settings",
+            "condition": {
+                "intent": "what_are_settings",
+                "entities": [{
+                    "name": "setting_type",
+                    "operator": "!=",
+                    "value": null
+                }],
+                "attributes": []
+            },
+            "action": "list_specific_image_setting",
+            "responses": ["All good for you?"]
+        }, {
+            "name": "what_are_settings",
+            "condition": {
+                "intent": "what_are_settings",
+                "entities": [{
+                    "name": "setting_type",
+                    "operator": "==",
+                    "value": null
+                }],
+                "attributes": []
+            },
+            "action": "list_image_settings",
+            "responses": ["All good for you?"]
+        }
+    ]
+}
