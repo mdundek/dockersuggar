@@ -55,6 +55,7 @@
     I am good
     No, I am good
     I am done for now
+    No, All good thanks
 
 %[unhappy]
     You suck
@@ -90,6 +91,7 @@
     I need a container
     I need a new instance of @[image_name] database
     I need a @[image_name] database
+    I need a @[image_name] container
     I want to start a new @[image_name] server instance
     Start a new container for me please
     Please spin up a @[image_name] instance for me
@@ -102,6 +104,7 @@
     What are the @[setting_type] use?
     What are the @[setting_type] mapped?
     What value is set for the @[setting_type]?
+    What @[setting_type] is currently mapped to the host @[setting_type]?
     What @[setting_type] did I map?
     What was the @[setting_type] again?
     Can you show me those settings?

@@ -225,10 +225,13 @@ exports.getStatus = (delay) => {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             (async() => {
+                let containers = null;
+                let rasaContainer = null;
+                let ducklingContainer = null;
                 try {
-                    let containers = await dockerController.listContainers();
-                    let rasaContainer = containers.find(r => r.names == "/dockersuggar_rasa_nlu");
-                    let ducklingContainer = containers.find(r => r.names == "/dockersuggar_rasa_duckling");
+                    containers = await dockerController.listContainers();
+                    rasaContainer = containers.find(r => r.names == "/dockersuggar_rasa_nlu");
+                    ducklingContainer = containers.find(r => r.names == "/dockersuggar_rasa_duckling");
 
                     if (!rasaContainer || !ducklingContainer) {
                         resolve({

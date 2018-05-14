@@ -11,20 +11,34 @@
                 "value": null
             }]
         },
-        "responses": ["Ok, @[image_name] it is. I fould previously used settings, would you like to reuse those?"],
-        "dialog": "image_settings_reuse"
+        "responses": ["Ok, @[image_name] it is.\nI will use previously used settings to run this container unless you tell me otherwise. Is there anything you wish to configure?"]
     }, {
-        "name": "no_previous_settings",
+        "name": "do_configure_something",
         "condition": {
-            "intent": null,
+            "intent": "yes",
             "entities": [],
-            "attributes": [{
-                "name": "found_container_settings",
-                "operator": "==",
-                "value": null
-            }]
+            "attributes": []
         },
-        "responses": ["Is there anything you wish to configure?"],
-        "dialog": "configure_container"
+        "responses": ["Just tell me what you would like to configure then."]
+    }, {
+        "import": "container_configure_options"
+    }, {
+        "import": "ask_about_current_settings"
+    }, {
+        "name": "done_with_settings",
+        "condition": {
+            "intent": "done",
+            "entities": [],
+            "attributes": []
+        },
+        "responses": ["Ok, all good then"]
+    }, {
+        "name": "no_done_with_settings",
+        "condition": {
+            "intent": "no",
+            "entities": [],
+            "attributes": []
+        },
+        "responses": ["Ok, all good than"]
     }]
 }

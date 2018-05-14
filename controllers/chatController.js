@@ -24,6 +24,10 @@ exports.init = () => {
         console.log(chalk.bold(text));
     });
 
+    botDialog.on("missmatch", async(nlpResult, stack, session) => {
+        await dataController.logNlpMissmatch(nlpResult, stack, session);
+    });
+
     botDialog.addActionHandler("select_image", action_selectImage);
     botDialog.addActionHandler("list_images", action_listImages);
     botDialog.addActionHandler("list_containers", action_listContainers);
@@ -343,24 +347,26 @@ let action_matchSystemEntitiesPorts = async function(session, botResponse) {
 let action_listImageSettings = async function(session) {
     let responses = [];
 
-    let ports = session.attributes.found_container_settings.settings.ports;
-    for (let containerPort in ports) {
-        responses.push(`The container port ${containerPort} is mapped to the host port ${ports[containerPort]}.`);
-    }
-    let volumes = session.attributes.found_container_settings.settings.volumes;
-    for (let containerVolume in volumes) {
-        responses.push(`The container volume ${containerVolume} is mapped to the host volume ${volumes[containerVolume]}.`);
-    }
-    let envs = session.attributes.found_container_settings.settings.env;
-    for (let envName in envs) {
-        responses.push(`The environement variable ${envName} has the value "${envs[envName]}".`);
-    }
-    let networkConfigured = session.attributes.found_container_settings.settings.network;
-    if (networkConfigured) {
-        let networks = await dockerController.listNetworks();
-        let network = networks.find(n => n.Id == session.attributes.found_container_settings.settings.networkId);
+    if (session.attributes.found_container_settings && session.attributes.found_container_settings.settings) {
+        let ports = session.attributes.found_container_settings.settings.ports;
+        for (let containerPort in ports) {
+            responses.push(`The container port ${containerPort} is mapped to the host port ${ports[containerPort]}.`);
+        }
+        let volumes = session.attributes.found_container_settings.settings.volumes;
+        for (let containerVolume in volumes) {
+            responses.push(`The container volume ${containerVolume} is mapped to the host volume ${volumes[containerVolume]}.`);
+        }
+        let envs = session.attributes.found_container_settings.settings.env;
+        for (let envName in envs) {
+            responses.push(`The environement variable ${envName} has the value "${envs[envName]}".`);
+        }
+        let networkConfigured = session.attributes.found_container_settings.settings.network;
+        if (networkConfigured) {
+            let networks = await dockerController.listNetworks();
+            let network = networks.find(n => n.Id == session.attributes.found_container_settings.settings.networkId);
 
-        responses.push(`The container is linked to the network "${network.Name}".`);
+            responses.push(`The container is linked to the network "${network.Name}".`);
+        }
     }
 
     if (responses.length == 0) {

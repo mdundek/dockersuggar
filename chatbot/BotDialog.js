@@ -62,7 +62,8 @@ let BotDialog = function(config) {
 
     this.actionHandlers = {};
     this.eventCallbacks = {
-        "text": []
+        "text": [],
+        "missmatch": []
     };
     this.slotValidatorHandlers = {};
     this.session = {
@@ -185,6 +186,22 @@ let resolveDialogTree = function() {
 let processStackMatch = function(stackMatch, botResult) {
     return new Promise((resolve, reject) => {
         (async() => {
+
+            // Could not match anything, we log this
+            if (stackMatch.name == "&otherwise") {
+                if (this.eventCallbacks.missmatch.length > 0) {
+                    this.eventCallbacks.missmatch.forEach(cb => {
+                        cb(botResult ? botResult : null, this.stack.map(s => {
+                            let stack = Object.assign({}, s);
+                            if (stack.dialog) {
+                                stack.dialog = stack.dialog.id;
+                            }
+                            return stack;
+                        }), this.session);
+                    });
+                }
+            }
+
             // *************** PROCESS SLOTS ********************
             await processPreActions.call(this, stackMatch, botResult ? botResult : null);
             await processSlots.call(this, stackMatch);
@@ -569,6 +586,9 @@ let queryUserInputAndEvaluate = async function(stackMatch) {
 
     // Ask NLU engine to evaluate user text input
     let botResponse = await this.bot.say({ "text": promptResponse.userInput, "threshold": this.session.nluThreshold });
+
+    // console.log(JSON.stringify(this.stack, null, 4));
+    // console.log(botResponse);
 
     // If intent detected by NLU engine
     if (botResponse.intent) {
