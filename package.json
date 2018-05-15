@@ -33,6 +33,7 @@
     "dependencies": {
         "botkit": "^0.6.14",
         "chalk": "^2.4.1",
+        "chatito": "^1.2.2",
         "docker-cli-js": "^2.2.0",
         "dockerode": "^2.5.5",
         "figlet": "^1.2.0",

@@ -12,6 +12,27 @@ if (!fs.existsSync(dsConfigFolder)) {
     fs.mkdirSync(dsConfigFolder);
 }
 
+// NLU model folders
+let nluFolder = path.join(dsConfigFolder, 'nlu');
+if (!fs.existsSync(nluFolder)) {
+    fs.mkdirSync(nluFolder);
+}
+exports.NLU_DATA_FOLDER = path.join(nluFolder, 'data');
+exports.NLU_LOGS_FOLDER = path.join(nluFolder, 'logs');
+exports.NLU_PROJECT_FOLDER = path.join(nluFolder, 'projects');
+exports.NLU_PROJECT_DOCKERSUGGAR_TS_FOLDER = path.join(this.NLU_PROJECT_FOLDER, 'dockersuggar_tensorflow');
+exports.NLU_PROJECT_DOCKERSUGGAR_SP_FOLDER = path.join(this.NLU_PROJECT_FOLDER, 'dockersuggar_spacy');
+
+if (!fs.existsSync(this.NLU_LOGS_FOLDER)) {
+    fs.mkdirSync(this.NLU_LOGS_FOLDER);
+}
+if (!fs.existsSync(this.NLU_PROJECT_FOLDER)) {
+    fs.mkdirSync(this.NLU_PROJECT_FOLDER);
+}
+if (!fs.existsSync(this.NLU_DATA_FOLDER)) {
+    fs.mkdirSync(this.NLU_DATA_FOLDER);
+}
+
 // Database folder
 let dsDbFolder = path.join(dsConfigFolder, 'db');
 if (!fs.existsSync(dsDbFolder)) {
@@ -22,12 +43,14 @@ let db = {
     ImageRunConfigs: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'ImageRunConfigs.test.db' : 'ImageRunConfigs.db')),
     ImageConfigs: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'ImageConfigs.test.db' : 'ImageConfigs.db')),
     Settings: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'Settings.test.db' : 'Settings.db')),
-    RemoteServers: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'RemoteServers.test.db' : 'RemoteServers.db'))
+    RemoteServers: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'RemoteServers.test.db' : 'RemoteServers.db')),
+    NlpMissmatches: new Datastore(path.join(dsDbFolder, process.env.TEST == 'true' ? 'NlpMissmatch.test.db' : 'NlpMissmatch.db'))
 };
 db.ImageRunConfigs.loadDatabase();
 db.ImageConfigs.loadDatabase();
 db.Settings.loadDatabase();
 db.RemoteServers.loadDatabase();
+db.NlpMissmatches.loadDatabase();
 
 exports.IMAGE_BASE_DIR = "images"; // Will be overwritten by promptController.js anyway
 
@@ -37,6 +60,7 @@ exports.IMAGE_BASE_DIR = "images"; // Will be overwritten by promptController.js
 exports.init = () => {
     return new Promise((resolve, reject) => {
         try {
+            fse.copySync(path.join(__basedir, "resources/rasa_nlu/projects"), this.NLU_PROJECT_FOLDER);
             if (process.env.TEST) {
                 setTimeout(() => {
                     resolve();

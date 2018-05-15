@@ -1,0 +1,27 @@
+[{
+    "name": "what_are_specific_settings",
+    "condition": {
+        "intent": "what_are_settings",
+        "entities": [{
+            "name": "setting_type",
+            "operator": "!=",
+            "value": null
+        }],
+        "attributes": []
+    },
+    "preAction": "list_specific_image_setting",
+    "responses": ["Anything else you wish to configure?"]
+}, {
+    "name": "what_are_settings",
+    "condition": {
+        "intent": "what_are_settings",
+        "entities": [{
+            "name": "setting_type",
+            "operator": "==",
+            "value": null
+        }],
+        "attributes": []
+    },
+    "preAction": "list_image_settings",
+    "responses": ["Anything else you wish to configure?"]
+}]
