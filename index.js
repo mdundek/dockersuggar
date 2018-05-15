@@ -10,7 +10,7 @@ var chalk = require("chalk");
 var figlet = require('figlet');
 
 program
-    .version('0.1.4')
+    .version('0.1.5')
     .description("\n" + figlet.textSync('DockerSuggar'))
     .option('-r, --remote <name>', 'Execute command on a remote docker instance');
 
