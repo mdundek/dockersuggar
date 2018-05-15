@@ -42,7 +42,6 @@ $ dockersuggar -h
 This outputs:
 
 ```
-
   ____             _             ____
  |  _ \  ___   ___| | _____ _ __/ ___| _   _  __ _  __ _  __ _ _ __
  | | | |/ _ \ / __| |/ / _ \ '__\___ \| | | |/ _` |/ _` |/ _` | '__|
@@ -54,53 +53,58 @@ This outputs:
 
   Options:
 
-    -V, --version            output the version number
-    -r, --remote <name>      Execute command on a remote docker instance
-    -h, --help               output usage information
+    -V, --version               output the version number
+    -r, --remote <name>         Execute command on a remote docker instance
+    -h, --help                  output usage information
 
   Commands:
 
 
+    Docker remote API servers:
+
+      listRemotes                 List remote connections
+      addUpdateRemote             Add / Update remote docker connection
+      removeRemote                Remove a remote docker connection
+
     Local Dockerfile stuff:
 
-      dockerfiles | df         List local Dockerfiles
-      new | n                  Create a new Dockerfile
-      editDockerfile | ed      Edit dockerfile with default editor
-      build | b                Build a docker image
+      dockerProjectsBasePath      Set / update the base folder path for your Dockerfile projects
+      dockerfiles | df            List local Dockerfiles
+      new | n                     Create a new Dockerfile
+      editDockerfile | ed         Edit dockerfile with default editor
+      build | b                   Build a docker image
 
     Docker images:
 
-      images | i               List available docker images
-      document                 Document an image such as ports, volumes and environement variables
-      tag | t                  Tag a docker image for a repository
-      deleteImage | di         Delete a docker image
+      images | i                  List available docker images
+      document                    Document an image such as ports, volumes and environement variables
+      tag | t                     Tag a docker image for a repository
+      pull                        Pull a docker image from a registry
+      deleteImage | di            Delete a docker image
 
     Containers:
 
-      containers | c           List containers
-      run | r                  Run container from image
-      startContainer | startc  Start a docker container
-      stopContainer | stopc    Stop running docker container
-      deleteContainer | dc     Delete a docker container
-      inspect [options]        Get container specific information
-      logs | l                 Display logs for conainer
-      shell                    Shell terminal into running container
-      exec | e                 Execute command on running container
+      containers | c              List containers
+      create                      Create a container from image
+      run | r                     Run container from image
+      startContainer | startc     Start a docker container
+      stopContainer | stopc       Stop running docker container
+      pauseContainer | pause      Pause running docker container
+      unpauseContainer | unpause  Unpause running docker container
+      deleteContainer | dc        Delete a docker container
+      inspect [options]           Get container specific information
+      logs | l                    Display logs for conainer
+      shell                       Shell terminal into running conainer
+      exec | e                    Execute command on running conainer
 
     Networks:
 
-      networks | net           List available networks
-      createNetwork | cn       Create new network
-      deleteNetwork | dn       Delete a network
-      inspectNetwork | in      Inspect a network
-      linkToNetwork | ltn      Link a container to a network
-      unlinkFromNetwork | ufn  Unlink a container from a network
-
-    Docker remote API servers:
-
-      listRemotes               List remote connections
-      addUpdateRemote          Add / Update remote docker connection
-      removeRemote             Remove a remote docker connection
+      networks | net              List available networks
+      createNetwork | cn          Create new network
+      deleteNetwork | dn          Delete a network
+      inspectNetwork | in         Inspect a network
+      linkToNetwork | ltn         Link a container to a network
+      unlinkFromNetwork | ufn     Unlink a container from a network
 ```
 
 
