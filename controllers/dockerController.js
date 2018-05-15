@@ -790,6 +790,20 @@ exports.createContainerFromImage = async(params, image) => {
         }
     };
 
+    optsc.AttachStdin = true;
+    optsc.AttachStdout = true;
+    optsc.AttachStderr = true;
+    optsc.Tty = true;
+    optsc.OpenStdin = true;
+    optsc.StdinOnce = false;
+
+    if (params.cmd) {
+        optsc.Cmd = [];
+        params.cmd.map(c => c.split(" ")).forEach(ca => {
+            optsc.Cmd = optsc.Cmd.concat(ca);
+        });
+    }
+
     populateHostConfig(params, optsc);
     populateEnv(params, optsc);
 
@@ -822,17 +836,18 @@ exports.runImage = async(params, image) => {
     // ********************* CREATE CONTAINER *********************
     // ************************************************************
 
+    optsc.AttachStdin = true;
+    optsc.AttachStdout = true;
+    optsc.AttachStderr = true;
+    optsc.Tty = true;
+    optsc.OpenStdin = true;
+    optsc.StdinOnce = false;
+
     // Not detached
     // Shell rather than default cmd
     // No custom cmd
     if (!params.bgMode && params.shell && !params.cmd) {
         optsc.Cmd = ["bin/bash"];
-        optsc.AttachStdin = true;
-        optsc.AttachStdout = true;
-        optsc.AttachStderr = true;
-        optsc.Tty = true;
-        optsc.OpenStdin = true;
-        optsc.StdinOnce = false;
     }
     // Not detached
     // No shell
@@ -842,12 +857,6 @@ exports.runImage = async(params, image) => {
         params.cmd.map(c => c.split(" ")).forEach(ca => {
             optsc.Cmd = optsc.Cmd.concat(ca);
         });
-        optsc.AttachStdin = true;
-        optsc.AttachStdout = true;
-        optsc.AttachStderr = true;
-        optsc.Tty = true;
-        optsc.OpenStdin = true;
-        optsc.StdinOnce = false;
     }
     // Detached
     // No shell
@@ -857,18 +866,6 @@ exports.runImage = async(params, image) => {
         params.cmd.map(c => c.split(" ")).forEach(ca => {
             optsc.Cmd = optsc.Cmd.concat(ca);
         });
-    }
-
-    // Detached
-    // No shell
-    // Custom cmd
-    else if (params.bgMode && !params.shell && !params.cmd) {
-        optsc.AttachStdin = true;
-        optsc.AttachStdout = true;
-        optsc.AttachStderr = true;
-        optsc.Tty = true;
-        optsc.OpenStdin = true;
-        optsc.StdinOnce = false;
     }
 
     // Create container

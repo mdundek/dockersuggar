@@ -856,6 +856,9 @@ module.exports = {
      * create
      */
     create: async() => {
+        // ************************************************************
+        // ************************** IMAGE ***************************
+        // ************************************************************
         let images = await dockerController.listImages();
         if (images.length == 0) {
             console.log(chalk.grey("No images found"));
@@ -867,7 +870,7 @@ module.exports = {
         let questions = [{
             type: 'input',
             name: 'index',
-            message: 'Image to create container from:',
+            message: 'Image to create a container from:',
             validate: (index) => {
                 if (validateIndexResponse(images, index)) {
                     return true;
@@ -881,6 +884,10 @@ module.exports = {
 
         let sImage = images[parseInt(runImageIndex.index) - 1];
         let previousRunSettings = await dataController.lookupImageRunConfig(sImage);
+
+        // ************************************************************
+        // ********************** DOCUMENTATION ***********************
+        // ************************************************************
         let imageConfig = await dataController.lookupImageConfig(sImage);
         if (imageConfig && imageConfig.config) {
             console.log("---------------------- Image documentation ----------------------");
@@ -919,7 +926,10 @@ module.exports = {
         }
 
         let existingContainers = await dockerController.listContainers();
-        // ************ PROMPT: Init detailed questions params ************
+
+        // ************************************************************
+        // ********************* GLOBAL SETTINGS **********************
+        // ************************************************************
         questions = [{
             type: 'input',
             name: 'name',
@@ -935,6 +945,11 @@ module.exports = {
                     return true;
                 }
             }
+        }, {
+            type: 'confirm',
+            name: 'remove',
+            message: 'Remove container on exit:',
+            default: false
         }, {
             type: 'confirm',
             name: 'network',
@@ -981,7 +996,9 @@ module.exports = {
             runImageData.networkId = network.Id;
         }
 
-        // ************ PROMPT: Ports ************
+        // ************************************************************
+        // ************************** PORTS ***************************
+        // ************************************************************
         let pSettings = {};
         if (previousRunSettings && previousRunSettings.settings.ports && Object.keys(previousRunSettings.settings.ports).length > 0) {
             pSettings = previousRunSettings.settings.ports;
@@ -1003,7 +1020,9 @@ module.exports = {
         }, pSettings, " : ");
         runImageData.ports = portResult;
 
-        // ************ PROMPT: Volumes ************
+        // ************************************************************
+        // ************************* VOLUMES **************************
+        // ************************************************************
         let vSettings = {};
         if (previousRunSettings && previousRunSettings.settings.volumes && Object.keys(previousRunSettings.settings.volumes).length > 0) {
             vSettings = previousRunSettings.settings.volumes;
@@ -1025,7 +1044,9 @@ module.exports = {
         }, vSettings, " : ", true);
         runImageData.volumes = volResult;
 
-        // ************ PROMPT: Environement variables ************
+        // ************************************************************
+        // ******************* ENVIRONEMENT VARIABLES *****************
+        // ************************************************************
         let envResult = await promptForRepetingKeyValues({
             "intro": "Environement variables",
             "key": "Environement variable name",
@@ -1033,7 +1054,45 @@ module.exports = {
         }, previousRunSettings && previousRunSettings.settings.env ? previousRunSettings.settings.env : null);
         runImageData.env = envResult;
 
-        // Now run docker command
+        // ************************************************************
+        // ************************* DEFAULTS *************************
+        // ************************************************************
+        runImageData.bgMode = true;
+        runImageData.shell = false;
+
+        // ************************************************************
+        // ************************* COMMANDS *************************
+        // ************************************************************
+        questions = [{
+            type: 'list',
+            name: 'replaceCmd',
+            message: "Do you want to replace the container default command?",
+            choices: ['Yes', 'No'],
+            default: 'No'
+        }];
+
+        if (previousRunSettings && previousRunSettings.settings) {
+            questions[0].default = previousRunSettings.settings.cmd && previousRunSettings.settings.cmd.length > 0 ? "Yes" : "No";
+        }
+
+        let cmdQuestion = await prompt(questions);
+
+        // ************************************************************
+        // ************************ CMD REPLACE ***********************
+        // ************************************************************
+        if (cmdQuestion.replaceCmd == "Yes") {
+            let commandsResult = await promptForRepetingValue({
+                "intro": "Execute commands",
+                "value": "Command"
+            }, previousRunSettings && previousRunSettings.settings.cmd ? previousRunSettings.settings.cmd : null);
+            runImageData.cmd = commandsResult && commandsResult.length > 0 ? commandsResult : null;
+        } else {
+            runImageData.cmd = null;
+        }
+
+        // console.log(runImageData);
+
+        // // Now run docker command
         let container = await dockerController.createContainerFromImage(runImageData, sImage);
 
         console.log(chalk.grey("\nDone"));
@@ -1977,16 +2036,23 @@ let displayAvailableContainers = (containers, numbered) => {
     containers.forEach((container, i) => {
         let line = chalk.redBright(container["names"]) + " - ID " + container["container id"].substring(0, 12) + "..., created " + new Date(container["created"] * 1000);
         if (container["up"]) {
-            line = chalk.green(padContainerStatus(container.state) + line);
+            line = chalk.green(padContainerStatus(container.state, numbered ? i : null) + line);
         } else {
-            line = chalk.grey(padContainerStatus(container.state) + line);
+            line = chalk.grey(padContainerStatus(container.state, numbered ? i : null) + line);
         }
         console.log(
             (numbered ? ((i + 1) + ": ") : "") +
             line
         );
         if (container.image) {
-            console.log("          (IMAGE ID " + (container.image ? container.image["image id"].substring(0, 19) + "..." : "?") + " -> " + (container.image ? chalk.yellow(container.image.repository + ":" + container.image.tag) : "n/a") + ")");
+            console.log(
+                (numbered ? i > 8 ? "   " : "   " : "") +
+                "          (IMAGE ID " +
+                (container.image ? container.image["image id"].substring(0, 19) + "..." : "?") +
+                " -> " +
+                (container.image ? chalk.yellow(container.image.repository + ":" + container.image.tag) : "n/a") +
+                ")"
+            );
         }
     });
 }
@@ -1995,10 +2061,14 @@ let displayAvailableContainers = (containers, numbered) => {
  * padContainerStatus
  * @param {*} label 
  */
-let padContainerStatus = (label) => {
+let padContainerStatus = (label, i) => {
+    let totalWidth = 10;
+    if (i != null) {
+        totalWidth = i > 8 ? 9 : 10;
+    }
     let la = label.split("");
     let colon = false;
-    for (let i = label.length; i < 10; i++) {
+    for (let i = label.length; i < totalWidth; i++) {
         if (!colon) {
             la.push(":");
             colon = true;
