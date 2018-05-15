@@ -186,6 +186,7 @@ let resolveDialogTree = function() {
 let processStackMatch = function(stackMatch, botResult) {
     return new Promise((resolve, reject) => {
         (async() => {
+            await processPreActions.call(this, stackMatch, botResult ? botResult : null);
 
             // Could not match anything, we log this
             if (stackMatch.name == "&otherwise") {
@@ -203,7 +204,6 @@ let processStackMatch = function(stackMatch, botResult) {
             }
 
             // *************** PROCESS SLOTS ********************
-            await processPreActions.call(this, stackMatch, botResult ? botResult : null);
             await processSlots.call(this, stackMatch);
 
             // *************** DISPLAY POTENTIAL RESPONSE ********************

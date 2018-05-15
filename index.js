@@ -344,6 +344,7 @@ program
                 await promptController.run();
                 process.exit(0);
             } catch (e) {
+                console.log(e);
                 console.log("");
                 console.log(chalk.red("ERROR: "), e.message);
             }

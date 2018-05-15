@@ -519,6 +519,9 @@ module.exports = {
      * run
      */
     run: async() => {
+        // ************************************************************
+        // ************************** IMAGE ***************************
+        // ************************************************************
         let images = await dockerController.listImages();
         if (images.length == 0) {
             console.log(chalk.grey("No images found"));
@@ -544,6 +547,10 @@ module.exports = {
 
         let sImage = images[parseInt(runImageIndex.index) - 1];
         let previousRunSettings = await dataController.lookupImageRunConfig(sImage);
+
+        // ************************************************************
+        // ********************** DOCUMENTATION ***********************
+        // ************************************************************
         let imageConfig = await dataController.lookupImageConfig(sImage);
         if (imageConfig && imageConfig.config) {
             console.log("---------------------- Image documentation ----------------------");
@@ -582,7 +589,10 @@ module.exports = {
         }
 
         let existingContainers = await dockerController.listContainers();
-        // ************ PROMPT: Init detailed questions params ************
+
+        // ************************************************************
+        // ********************* GLOBAL SETTINGS **********************
+        // ************************************************************
         questions = [{
             type: 'input',
             name: 'name',
@@ -600,14 +610,14 @@ module.exports = {
             }
         }, {
             type: 'confirm',
+            name: 'blocking',
+            message: 'Does or will this container run a blocking process (server, db...):',
+            default: true
+        }, {
+            type: 'confirm',
             name: 'remove',
             message: 'Remove container on exit:',
             default: false
-        }, {
-            type: 'confirm',
-            name: 'bgMode',
-            message: 'Do you want to run this container in detached mode:',
-            default: true
         }, {
             type: 'confirm',
             name: 'network',
@@ -654,35 +664,9 @@ module.exports = {
             runImageData.networkId = network.Id;
         }
 
-        // ************ PROMPT: Shell mode ************
-        questions = [{
-            type: 'confirm',
-            name: 'shell',
-            message: 'Do you wish to log into this container:',
-            default: false
-        }];
-        // Populate default values for those params if a previous run has been found
-        if (previousRunSettings && previousRunSettings.settings.shell) {
-            questions[0].default = previousRunSettings.settings.shell;
-        }
-
-        // Prompt user with questions
-        let shellQuestionResponse = await prompt(questions);
-
-        // runImageData.shell = shellQuestionResponse.shell;
-        // map responses to final values if necessary
-        runImageData.shell = shellQuestionResponse.shell;
-
-        if (!runImageData.shell) {
-            // ************ PROMPT: Extra command ************
-            let commandsResult = await promptForRepetingValue({
-                "intro": "Execute commands",
-                "value": "Command"
-            }, previousRunSettings && previousRunSettings.settings.cmd ? previousRunSettings.settings.cmd : null);
-            runImageData.cmd = commandsResult;
-        }
-
-        // ************ PROMPT: Ports ************
+        // ************************************************************
+        // ************************** PORTS ***************************
+        // ************************************************************
         let pSettings = {};
         if (previousRunSettings && previousRunSettings.settings.ports && Object.keys(previousRunSettings.settings.ports).length > 0) {
             pSettings = previousRunSettings.settings.ports;
@@ -704,7 +688,9 @@ module.exports = {
         }, pSettings, " : ");
         runImageData.ports = portResult;
 
-        // ************ PROMPT: Volumes ************
+        // ************************************************************
+        // ************************* VOLUMES **************************
+        // ************************************************************
         let vSettings = {};
         if (previousRunSettings && previousRunSettings.settings.volumes && Object.keys(previousRunSettings.settings.volumes).length > 0) {
             vSettings = previousRunSettings.settings.volumes;
@@ -726,7 +712,9 @@ module.exports = {
         }, vSettings, " : ", true);
         runImageData.volumes = volResult;
 
-        // ************ PROMPT: Environement variables ************
+        // ************************************************************
+        // ******************* ENVIRONEMENT VARIABLES *****************
+        // ************************************************************
         let envResult = await promptForRepetingKeyValues({
             "intro": "Environement variables",
             "key": "Environement variable name",
@@ -734,10 +722,123 @@ module.exports = {
         }, previousRunSettings && previousRunSettings.settings.env ? previousRunSettings.settings.env : null);
         runImageData.env = envResult;
 
+        // ************************************************************
+        // ************************** BLOCKING ************************
+        // ************************************************************
+        if (runImageData.blocking) {
+            questions = [{
+                type: 'list',
+                name: 'bgMode',
+                message: "Detach container?",
+                choices: ['Yes', 'No'],
+                default: 'Yes'
+            }];
+
+            if (previousRunSettings && previousRunSettings.settings) {
+                questions[0].default = previousRunSettings.settings.bgMode ? "Yes" : "No";
+            }
+
+            let bgModeQuestion = await prompt(questions);
+            runImageData.bgMode = bgModeQuestion.bgMode == "Yes";
+
+            // ************************************************************
+            // ************************** BG MODE *************************
+            // ************************************************************
+            if (runImageData.bgMode) {
+                runImageData.shell = false;
+
+                questions = [{
+                    type: 'list',
+                    name: 'replaceCmd',
+                    message: "Do you want to replace the container default command?",
+                    choices: ['Yes', 'No'],
+                    default: 'No'
+                }];
+
+                if (previousRunSettings && previousRunSettings.settings) {
+                    questions[0].default = previousRunSettings.settings.cmd && previousRunSettings.settings.cmd.length > 0 ? "Yes" : "No";
+                }
+
+                let cmdQuestion = await prompt(questions);
+
+                // ************************************************************
+                // ************************ CMD REPLACE ***********************
+                // ************************************************************
+                if (cmdQuestion.replaceCmd == "Yes") {
+                    let commandsResult = await promptForRepetingValue({
+                        "intro": "Execute commands",
+                        "value": "Command"
+                    }, previousRunSettings && previousRunSettings.settings.cmd ? previousRunSettings.settings.cmd : null);
+                    runImageData.cmd = commandsResult && commandsResult.length > 0 ? commandsResult : null;
+                } else {
+                    runImageData.cmd = null;
+                }
+            }
+        }
+        // ************************************************************
+        // *********************** NON BLOCKING ***********************
+        // ************************************************************
+        else {
+            runImageData.bgMode = false;
+        }
+
+        // ************************************************************
+        // *********** LIVE MODE (NOT RUNNING IN BACKGROUND) **********
+        // ************************************************************
+        if (!runImageData.bgMode) {
+            let choices = [
+                'By attaching a shell',
+                'With my commands',
+                'Don\'t overwrite command'
+            ];
+            questions = [{
+                type: 'list',
+                name: 'replaceCmd',
+                message: "Overwrite default container command?",
+                choices: choices,
+                default: choices[2]
+            }];
+
+            if (previousRunSettings && previousRunSettings.settings && previousRunSettings.settings.replaceCmd) {
+                questions[0].default = previousRunSettings.settings.replaceCmd;
+            }
+
+            let replaceCmdQuestion = await prompt(questions);
+            runImageData.replaceCmd = replaceCmdQuestion.replaceCmd;
+
+            // ************************************************************
+            // ******************** SHELL INTO CONTAINER ******************
+            // ************************************************************
+            if (choices.indexOf(runImageData.replaceCmd) == 0) {
+                runImageData.shell = true;
+                runImageData.cmd = null;
+            }
+            // ************************************************************
+            // ********************* OVERWRITE COMMAND ********************
+            // ************************************************************
+            else if (choices.indexOf(runImageData.replaceCmd) == 1) {
+                runImageData.shell = false;
+
+                let commandsResult = await promptForRepetingValue({
+                    "intro": "Execute commands",
+                    "value": "Command"
+                }, previousRunSettings && previousRunSettings.settings.cmd ? previousRunSettings.settings.cmd : null);
+                runImageData.cmd = commandsResult && commandsResult.length > 0 ? commandsResult : null;
+            }
+            // ************************************************************
+            // ****************** DONT OVERWRITE COMMAND ******************
+            // ************************************************************
+            else if (choices.indexOf(runImageData.replaceCmd) == 2) {
+                runImageData.shell = false;
+                runImageData.cmd = null;
+            }
+        }
+
         // Save user selected params for this image for next run
         await dataController.saveImageRunConfig(sImage, runImageData);
+        // console.log(runImageData);
 
-        // Now run docker command
+        // // Now run docker command
         let container = await dockerController.runImage(runImageData, sImage);
         if (runImageData.bgMode) {
             let data = await dockerController.inspectContainer(container);
@@ -998,7 +1099,7 @@ module.exports = {
         let questions = [{
             type: 'input',
             name: 'index',
-            message: 'Container number to start a bash session in:',
+            message: 'Container number to start a shell session in:',
             validate: (index) => {
                 if (validateIndexResponse(containers, index)) {
                     return true;

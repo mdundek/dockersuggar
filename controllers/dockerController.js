@@ -421,7 +421,7 @@ exports.execInContainer = (container, commands) => {
  */
 exports.startContainer = (container) => {
     return new Promise((resolve, reject) => {
-        let dContainer = docker.getContainer(container["container id"]);
+        let dContainer = container["container id"] ? docker.getContainer(container["container id"]) : container;
         if (!dContainer) {
             reject(new Error("Container not found"));
         } else {
@@ -774,7 +774,7 @@ exports.inspectNetwork = (network) => {
 }
 
 /**
- * run
+ * createContainerFromImage
  * @param {*} params 
  * @param {*} image 
  */
@@ -817,37 +817,102 @@ exports.runImage = async(params, image) => {
     populateHostConfig(params, optsc);
     populateEnv(params, optsc);
 
-    if (params.bgMode || params.shell || (params.cmd && params.cmd.length > 0)) {
-        if (params.bgMode) {
-            let container = await self.createAndStartContainer(optsc, params);
 
-            if (params.cmd.length == 0 && params.shell) {
-                await self.execShellInContainer(container);
-            } else if (params.cmd.length > 0 && !params.shell) {
-                await self.execCmdInContainer(container, params.cmd);
-            }
-            return container;
-        } else {
-            if (params.shell) {
-                optsc.Cmd = ["bin/bash"];
-            } else {
-                optsc.Cmd = params.cmd;
-            }
+    // ************************************************************
+    // ********************* CREATE CONTAINER *********************
+    // ************************************************************
 
-            optsc.AttachStdin = true;
-            optsc.AttachStdout = true;
-            optsc.AttachStderr = true;
-            optsc.Tty = true;
-            optsc.OpenStdin = true;
-            optsc.StdinOnce = false;
+    // Not detached
+    // Shell rather than default cmd
+    // No custom cmd
+    if (!params.bgMode && params.shell && !params.cmd) {
+        optsc.Cmd = ["bin/bash"];
+        optsc.AttachStdin = true;
+        optsc.AttachStdout = true;
+        optsc.AttachStderr = true;
+        optsc.Tty = true;
+        optsc.OpenStdin = true;
+        optsc.StdinOnce = false;
+    }
+    // Not detached
+    // No shell
+    // Custom cmd
+    else if (!params.bgMode && !params.shell && params.cmd) {
+        optsc.Cmd = [];
+        params.cmd.map(c => c.split(" ")).forEach(ca => {
+            optsc.Cmd = optsc.Cmd.concat(ca);
+        });
+        optsc.AttachStdin = true;
+        optsc.AttachStdout = true;
+        optsc.AttachStderr = true;
+        optsc.Tty = true;
+        optsc.OpenStdin = true;
+        optsc.StdinOnce = false;
+    }
+    // Detached
+    // No shell
+    // Custom cmd
+    else if (params.bgMode && !params.shell && params.cmd) {
+        optsc.Cmd = [];
+        params.cmd.map(c => c.split(" ")).forEach(ca => {
+            optsc.Cmd = optsc.Cmd.concat(ca);
+        });
+    }
 
-            let container = await self.createAndStartContainer(optsc, params);
-            await self.attachAndStdinContainer(container);
-            return container;
-        }
-    } else {
-        let container = await self.createAndStartContainer(optsc, params);
+    // Detached
+    // No shell
+    // Custom cmd
+    else if (params.bgMode && !params.shell && !params.cmd) {
+        optsc.AttachStdin = true;
+        optsc.AttachStdout = true;
+        optsc.AttachStderr = true;
+        optsc.Tty = true;
+        optsc.OpenStdin = true;
+        optsc.StdinOnce = false;
+    }
+
+    // Create container
+    let container = await self.createContainer(optsc, params);
+
+
+    // ************************************************************
+    // ********************** START CONTAINER *********************
+    // ************************************************************
+
+    // Not detached
+    // Shell rather than default cmd
+    // No custom cmd
+    if (!params.bgMode && params.shell && !params.cmd) {
+        await self.attachStartAndStdinContainer(container);
+        return container;
+    }
+    // Not detached
+    // No shell
+    // Custom cmd
+    else if (!params.bgMode && !params.shell && params.cmd) {
+        await self.attachStartAndStdinContainer(container);
+        return container;
+    }
+    // Not detached
+    // No shell
+    // No custom cmd
+    else if (!params.bgMode && !params.shell && !params.cmd) {
         await self.attachToContainer(container);
+        return container;
+    }
+
+    // Detached
+    // No shell
+    // No custom cmd
+    else if (params.bgMode && !params.shell && !params.cmd) {
+        await self.startContainer(container);
+        return container;
+    }
+    // Detached
+    // No shell
+    // Custom cmd
+    else if (params.bgMode && !params.shell && params.cmd) {
+        await self.startContainer(container);
         return container;
     }
 }
@@ -860,12 +925,11 @@ exports.runImage = async(params, image) => {
 exports.attachToContainer = (container) => {
     return new Promise((resolve, reject) => {
         (async() => {
-            container.attach({ stream: true, stdin: false, stdout: true, stderr: true }, (err, stream) => {
+            container.attach({ 'Detach': false, 'Tty': false, stream: true, stdin: false, stdout: true, stderr: true }, (err, stream) => {
                 if (err) {
                     reject(err);
                     return;
                 }
-
                 // Show outputs
                 stream.pipe(process.stdout);
 
@@ -878,10 +942,10 @@ exports.attachToContainer = (container) => {
 }
 
 /**
- * attachAndStdinContainer
+ * attachStartAndStdinContainer
  * @param {*} optsc 
  */
-exports.attachAndStdinContainer = (container) => {
+exports.attachStartAndStdinContainer = (container) => {
     return new Promise((resolve, reject) => {
         (async() => {
 
@@ -905,8 +969,7 @@ exports.attachAndStdinContainer = (container) => {
                 }
                 reject(err);
             };
-
-            container.attach({ stream: true, stdin: true, stdout: true, stderr: true }, (err, stream) => {
+            container.attach({ 'Detach': false, 'Tty': false, stream: true, stdin: true, stdout: true, stderr: true }, (err, stream) => {
                 if (err) {
                     exitFail(stream, err);
                     return;
@@ -937,6 +1000,7 @@ exports.attachAndStdinContainer = (container) => {
                         exitFail(stream, err);
                         return;
                     }
+
                     container.wait(function(err, data) {
                         if (err) {
                             exitFail(stream, err);
@@ -950,19 +1014,85 @@ exports.attachAndStdinContainer = (container) => {
     });
 }
 
+// /**
+//  * attachAndStdinContainer
+//  * @param {*} container 
+//  */
+// exports.attachAndStdinContainer = (container) => {
+//     return new Promise((resolve, reject) => {
+//         (async() => {
+
+//             // Connect stdin
+//             var isRaw = process.isRaw;
+
+//             let exitSuccess = (stream) => {
+//                 process.stdin.removeAllListeners();
+//                 process.stdin.setRawMode(isRaw);
+//                 process.stdin.resume();
+//                 stream.end();
+//                 resolve();
+//             };
+
+//             let exitFail = (stream, err) => {
+//                 process.stdin.removeAllListeners();
+//                 process.stdin.setRawMode(isRaw);
+//                 process.stdin.resume();
+//                 if (stream) {
+//                     stream.end();
+//                 }
+//                 reject(err);
+//             };
+
+//             container.attach({ 'Detach': false, 'Tty': false, stream: true, stdin: true, stdout: true, stderr: true }, (err, stream) => {
+//                 if (err) {
+//                     exitFail(stream, err);
+//                     return;
+//                 }
+//                 var previousKey,
+//                     CTRL_P = '\u0010',
+//                     CTRL_Q = '\u0011';
+
+//                 // Show outputs
+//                 stream.pipe(process.stdout);
+
+//                 // Connect stdin                
+//                 process.stdin.resume();
+//                 process.stdin.setEncoding('utf8');
+//                 process.stdin.setRawMode(true);
+//                 process.stdin.pipe(stream);
+
+//                 process.stdin.on('data', function(key) {
+//                     // Detects it is detaching a running container
+//                     if (previousKey === CTRL_P && key === CTRL_Q) {
+//                         exitSuccess(stream);
+//                     }
+//                     previousKey = key;
+//                 });
+
+//                 stream.on('close', function() {
+//                     exitSuccess(stream);
+//                 });
+//             });
+//         })();
+//     });
+// }
+
 /**
  * execShellInContainer
  * @param container
  */
 exports.execShellInContainer = (container) => {
     return new Promise((resolve, reject) => {
+
         container.exec({
             AttachStdin: true,
             AttachStdout: true,
             AttachStderr: true,
+            Detach: false,
             Tty: true,
             OpenStdin: true,
             StdinOnce: false,
+            DetachKeys: "ctrl-p,ctrl-q",
             Cmd: ["bash"]
         }, (error, exec) => {
             if (error) {
@@ -979,12 +1109,13 @@ exports.execShellInContainer = (container) => {
                 resolve();
             };
 
-            var attach_opts = { 'Detach': false, 'Tty': false, stream: true, stdin: true, stdout: true, stderr: true, hijack: true };
-            exec.start(attach_opts, function(err, stream) {
+            exec.start({ Detach: false, Tty: true, stream: true, stdin: true, stdout: true, stderr: true, hijack: true }, function(err, stream) {
                 if (error) {
                     reject(error);
                     return;
                 }
+
+                resizeTty(exec);
 
                 var previousKey,
                     CTRL_P = '\u0010',
@@ -992,7 +1123,6 @@ exports.execShellInContainer = (container) => {
 
                 stream.setEncoding('utf8');
                 stream.pipe(process.stdout);
-
                 process.stdin.resume();
                 process.stdin.setEncoding('utf8');
                 process.stdin.setRawMode(true);
@@ -1033,7 +1163,8 @@ exports.execCmdInContainer = (container, cmd) => {
             Tty: true,
             OpenStdin: true,
             StdinOnce: false,
-            Cmd: cmdArray
+            Cmd: cmdArray,
+            DetachKeys: "ctrl-p,ctrl-q"
         }, (error, exec) => {
             if (error) {
                 reject(error);
@@ -1054,6 +1185,8 @@ exports.execCmdInContainer = (container, cmd) => {
                     reject(error);
                     return;
                 }
+
+                resizeTty(exec);
 
                 var previousKey,
                     CTRL_P = '\u0010',
@@ -1084,27 +1217,27 @@ exports.execCmdInContainer = (container, cmd) => {
     });
 }
 
-/**
- * createAndStartContainer
- * @param {*} optsc 
- */
-exports.createAndStartContainer = (optsc, params) => {
-    return new Promise((resolve, reject) => {
-        (async() => {
-            // Create container
-            let container = await self.createContainer(optsc, params);
+// /**
+//  * createAndStartContainer
+//  * @param {*} optsc 
+//  */
+// exports.createAndStartContainer = (optsc, params) => {
+//     return new Promise((resolve, reject) => {
+//         (async() => {
+//             // Create container
+//             let container = await self.createContainer(optsc, params);
 
-            // Start container
-            container.start(function(err, data) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(container);
-                }
-            });
-        })();
-    });
-}
+//             // Start container
+//             container.start(function(err, data) {
+//                 if (err) {
+//                     reject(err);
+//                 } else {
+//                     resolve(container);
+//                 }
+//             });
+//         })();
+//     });
+// }
 
 /**
  * createContainer
@@ -1112,14 +1245,12 @@ exports.createAndStartContainer = (optsc, params) => {
  */
 exports.createContainer = (optsc, params) => {
     return new Promise((resolve, reject) => {
-
         docker.createContainer(optsc, (err, container) => {
             (async() => {
                 if (err) {
                     reject(err);
                 } else {
                     if (params.network) {
-
                         try {
                             await self.linkToNetwork({ "container id": container.id }, { Id: params.networkId });
                         } catch (e) {
@@ -1131,7 +1262,6 @@ exports.createContainer = (optsc, params) => {
                 }
             })();
         });
-
     });
 }
 
@@ -1169,5 +1299,21 @@ let populateEnv = (settings, optsc) => {
         for (let env in settings.env) {
             optsc.Env.push(env + "=" + settings.env[env]);
         }
+    }
+}
+
+/**
+ * resize
+ */
+let resizeTty = (exec) => {
+    var dimensions = {
+        h: process.stdout.rows,
+        w: process.stderr.columns
+    };
+
+    if (dimensions.h != 0 && dimensions.w != 0) {
+        try {
+            exec.resize(dimensions, (d) => {});
+        } catch (e) {}
     }
 }

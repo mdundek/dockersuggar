@@ -37,6 +37,7 @@ Bot.prototype.say = function(message) {
                     uri: `${this.config.rasaUri}/parse?q=${encodeURI(message.text)}&project=${this.config.intentProjectModel}`,
                     json: true // Automatically stringifies the body to JSON
                 });
+
                 if (response.intent.confidence > (message.threshold != null ? message.threshold : this.config.threshold)) {
                     message.intent = response.intent;
                 }

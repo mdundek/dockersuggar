@@ -9,8 +9,8 @@
         }],
         "attributes": []
     },
-    "action": "list_specific_image_setting",
-    "responses": ["All good for you?"]
+    "preAction": "list_specific_image_setting",
+    "responses": ["Anything else you wish to configure?"]
 }, {
     "name": "what_are_settings",
     "condition": {
@@ -22,6 +22,6 @@
         }],
         "attributes": []
     },
-    "action": "list_image_settings",
-    "responses": ["All good for you?"]
+    "preAction": "list_image_settings",
+    "responses": ["Anything else you wish to configure?"]
 }]

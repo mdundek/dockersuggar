@@ -370,7 +370,7 @@ let action_listImageSettings = async function(session) {
     }
 
     if (responses.length == 0) {
-        responses.push("Actually there is nothing special to report , no environement variables, volumes or ports have been configures..");
+        responses.push("Actually there is nothing special to report , no environement variables, volumes or ports have been configures.");
     }
     console.log(responses.join("\n"));
 }
