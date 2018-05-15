@@ -1,6 +1,0 @@
-language: "en"
-
-pipeline: "tensorflow_embedding"
-
-# data contains the same json, as described in the training data section
-data: _data_
