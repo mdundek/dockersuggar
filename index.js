@@ -12,7 +12,7 @@ var chalk = require("chalk");
 var figlet = require('figlet');
 
 program
-    .version('0.1.2')
+    .version('0.1.3')
     .description("\n" + figlet.textSync('DockerSuggar'))
     .option('-r, --remote <name>', 'Execute command on a remote docker instance');
 
@@ -636,73 +636,6 @@ program
                 console.log("");
                 await promptController.unlinkFromNetwork();
                 process.exit(0);
-            } catch (e) {
-                console.log("");
-                console.log(chalk.red("ERROR: "), e.message);
-            }
-        })();
-    });
-
-/**
- * COMMANDS: NETWORKS 
- */
-program
-    .command('installConversationalAgent')
-    .section("Conversational agent:")
-    .description('Install the dockersuggar conversational agent')
-    .action(() => {
-        cmdValue = "installConversationalAgent";
-        (async() => {
-            try {
-                await init(program);
-                console.log("");
-                await rasaController.installAndSetupRasa();
-                console.log(chalk.grey("Done"));
-                process.exit(0);
-            } catch (e) {
-                console.log("");
-                console.log(chalk.red("ERROR: "), e.message);
-            }
-        })();
-    });
-
-program
-    .command('trainModel')
-    .description('Train the assistant model (This will take a while)')
-    .action(() => {
-        cmdValue = "trainModel";
-        (async() => {
-            try {
-                await init(program);
-
-                dataController.deleteModelData();
-                await rasaController.installAndSetupRasa();
-                let respondedInTime = await rasaController.trainModel(true);
-                if (!respondedInTime) {
-                    // Timed out, try again later
-                    console.log(chalk.grey("The dockersuggar model is still training. The assistant will be available as soon as the training is complete."));
-                } else {
-                    console.log(chalk.grey("Done"));
-                }
-            } catch (e) {
-                console.log("");
-                console.log(chalk.red("ERROR: "), e.message);
-            }
-        })();
-    });
-
-program
-    .command('assistant')
-    .description('Start chatbot assistant')
-    .action(() => {
-        cmdValue = "assistant";
-        (async() => {
-            try {
-                await init(program);
-                // Experimental NLU Chatbot
-                await rasaController.init();
-                chatController.init();
-                // process.exit(0);
             } catch (e) {
                 console.log("");
                 console.log(chalk.red("ERROR: "), e.message);
