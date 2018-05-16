@@ -40,6 +40,8 @@ exports.init = () => {
     botDialog.addActionHandler("compute_settings_text", action_computeSettingsText);
     botDialog.addActionHandler("store_port_configuration", action_storePortConfiguration);
     botDialog.addActionHandler("exit", action_exit);
+    botDialog.addActionHandler("clean_up", action_cleanUp);
+
 
     botDialog.addSlotValidator("image_name", validate_imageName);
     botDialog.addSlotValidator("container_port", validate_port);
@@ -104,6 +106,17 @@ let action_selectImage = async function(session) {
  */
 let action_exit = async function(session) {
     process.exit(0);
+}
+
+/**
+ * action_cleanUp
+ * @param {*} session 
+ */
+let action_cleanUp = async function(session) {
+    session = {
+        "entities": {},
+        "attributes": {}
+    };
 }
 
 /**

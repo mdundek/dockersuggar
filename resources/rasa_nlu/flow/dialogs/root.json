@@ -56,7 +56,7 @@
         },
         {
             "name": "what_else",
-            "responses": ["Is there anything else I can do for you?"]
+            "responses": ["What else can I do for you?"]
         }
     ]
 }

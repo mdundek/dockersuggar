@@ -6,6 +6,7 @@
         "attributes": []
     },
     "responses": ["Ok, heard you."],
+    "action": "clean_up",
     "jump": {
         "name": "what_else"
     }
