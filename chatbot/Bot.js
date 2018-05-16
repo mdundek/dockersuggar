@@ -9,8 +9,6 @@ const request = require('request-promise');
 let Bot = function(config) {
     let defaults = {
         "rasaUri": "http://localhost:5000",
-        "ducklingUri": "http://localhost:8000",
-        "ducklingLocale": "en_GB",
         "threshold": 0.8,
         "intentProjectModel": "default",
         "entityProjectModel": "default"
@@ -54,25 +52,6 @@ Bot.prototype.say = function(message) {
                     message.entities = response.entities;
                 }
 
-                if (this.config.ducklingUri != null) {
-                    response = await request({
-                        method: 'POST',
-                        uri: `${this.config.ducklingUri}/parse`,
-                        form: {
-                            "locale": this.config.ducklingLocale,
-                            "text": message.text
-                        },
-                        json: true // Automatically stringifies the body to JSON
-                    });
-
-                    if (response.length > 0) {
-                        message.systemEntities = [];
-                        response.forEach(match => {
-                            match.value.dimention = match.dim;
-                            message.systemEntities.push(match.value);
-                        });
-                    }
-                }
                 resolve(message);
             } catch (e) {
                 reject(e);

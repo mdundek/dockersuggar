@@ -757,6 +757,31 @@ exports.getNetworkById = (networkId) => {
 }
 
 /**
+ * getNetworkContainerIp
+ * @param {*} networkName 
+ * @param {*} containerName 
+ */
+exports.getNetworkContainerIp = async(networkName, containerName) => {
+    let networks = await self.listNetworks();
+    let rasaNetwork = networks.find(n => n.Name == networkName);
+    if (rasaNetwork) {
+        let networkData = await self.inspectNetwork(rasaNetwork);
+        let targetIp = null;
+        for (let cId in networkData.Containers) {
+            if (networkData.Containers[cId].Name == containerName) {
+                targetIp = networkData.Containers[cId].IPv4Address;
+                if (targetIp.indexOf("/") != -1) {
+                    targetIp = targetIp.substring(0, targetIp.indexOf("/"));
+                }
+            }
+        }
+        return targetIp;
+    } else {
+        return null;
+    }
+}
+
+/**
  * inspectNetwork
  * @param {*} network 
  */

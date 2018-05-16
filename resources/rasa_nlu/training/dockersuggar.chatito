@@ -99,17 +99,22 @@
     I would like to start a new container instance from an image
 
 %[what_are_settings]
-    What are those settings?
-    What @[setting_type] did I use?
-    What are the @[setting_type] use?
-    What are the @[setting_type] mapped?
-    What value is set for the @[setting_type]?
-    What @[setting_type] is currently mapped to the host @[setting_type]?
-    What @[setting_type] did I map?
-    What was the @[setting_type] again?
-    Can you show me those settings?
+    What are those settings
+    What @[setting_type] did I use
+    What are the @[setting_type] use
+    What are the @[setting_type] mapped
+    What value is set for the @[setting_type]
+    What @[setting_type] is currently mapped to the host @[setting_type]
+    What @[setting_type] did I map
+    What @[setting_type] did I declare
+    What @[setting_type] are declared
+    What are the @[setting_type] available
+    What was the @[setting_type] again
+    Can you show me those settings
     Remind me what those settings are please
     Show me the settings
+    What are the declared @[setting_type]
+    Will this container run in @[setting_type] mode
 
 %[configure_port]
     Actually I would like to bind a different port
@@ -118,11 +123,31 @@
     I need a different port
     Let's use a different port
     I want to map a port
-    I want to map port 3456 to the host port 6666
-    Map port 5555 to port 7777
-    Bind port 9999 to host port 4444
-    Bind host port 5544 to port 9999
     Map an exposed port
+    Bind container port @[container_port] to host port @[host_port]
+    Map container port @[container_port] to host port @[host_port]
+    I want to map container port @[container_port] to host port @[host_port]
+    Bind host port @[host_port] to container port @[container_port]
+    Map host port @[host_port] to container port @[container_port]
+    I want to map host port @[host_port] to container port @[container_port]
+    Bind host port @[host_port] to port @[container_port]
+    Map host port @[host_port] to port @[container_port]
+    I want to map host port @[host_port] to port @[container_port]
+    Bind container port @[container_port] to port @[host_port]
+    Map container port @[container_port] to port @[host_port]
+    I want to map container port @[container_port] to port @[host_port]
+    Bind port @[container_port] to host port @[host_port]
+    Map port @[container_port] to port @[host_port]
+    I want to map port @[container_port] to port @[host_port]
+    Bind port @[container_port]
+    Map port @[container_port]
+    I want to map port @[container_port]
+    Bind host port @[host_port]
+    Map host port @[host_port]
+    I want to map host port @[host_port]
+    Bind container port @[container_port]
+    Map container port @[container_port]
+    I want to map container port @[container_port]
 
 %[help]
     I need help
@@ -152,6 +177,21 @@
     networks
     environement variables
     environement variable
+    detached
+
+@[container_port]
+    1111
+    1234
+    45687
+    69874
+    8796
+
+@[host_port]
+    1111
+    1234
+    45687
+    69874
+    8796
 
 ~[elastic]
     elasticsearch

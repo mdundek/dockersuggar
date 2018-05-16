@@ -39,12 +39,6 @@ let BotDialog = function(config) {
     if (config.rasaUri) {
         botConfig.rasaUri = config.rasaUri;
     }
-    if (config.ducklingUri) {
-        botConfig.ducklingUri = config.ducklingUri;
-    }
-    if (config.ducklingLocale) {
-        botConfig.ducklingLocale = config.ducklingLocale;
-    }
     if (config.intentProjectModel) {
         botConfig.intentProjectModel = config.intentProjectModel;
     }
@@ -58,14 +52,15 @@ let BotDialog = function(config) {
 
     this.dialogJson = resolveDialogTree.call(this);
 
-    // console.log(JSON.stringify(this.dialogJson, null, 4));
-
+    this.conditionMatcherHandlers = {};
+    this.slotValidatorHandlers = {};
     this.actionHandlers = {};
+
     this.eventCallbacks = {
         "text": [],
         "missmatch": []
     };
-    this.slotValidatorHandlers = {};
+
     this.session = {
         "entities": {},
         "attributes": {}
@@ -104,6 +99,15 @@ BotDialog.prototype.on = function(event, cb) {
  */
 BotDialog.prototype.addActionHandler = function(actionName, handler) {
     this.actionHandlers[actionName] = handler;
+}
+
+/**
+ * addConditionMatchHandler
+ * @param {*} matchTypeName 
+ * @param {*} handler 
+ */
+BotDialog.prototype.addConditionMatchHandler = function(matchTypeName, handler) {
+    this.conditionMatcherHandlers[matchTypeName] = handler;
 }
 
 /**
@@ -301,11 +305,18 @@ let evaluateStackObjects = function(intent) {
             } else {
                 intentMatch = true;
             }
+
             // Match entities
             if (intentMatch) {
                 if (stackObj.condition.entities && stackObj.condition.entities.length > 0) {
                     let matchingEntities = stackObj.condition.entities.filter(stackObjectEntityCondition => {
-                        if (stackObjectEntityCondition.operator == "==") {
+                        if (stackObjectEntityCondition.matcher) {
+                            if (this.session.entities[stackObjectEntityCondition.name]) {
+                                return evaluateConditionMatcher.call(this, stackObjectEntityCondition.matcher, this.session.entities[stackObjectEntityCondition.name]);
+                            } else {
+                                return false;
+                            }
+                        } else if (stackObjectEntityCondition.operator == "==") {
                             if (stackObjectEntityCondition.value == this.session.entities[stackObjectEntityCondition.name]) {
                                 return true;
                             } else {
@@ -321,6 +332,7 @@ let evaluateStackObjects = function(intent) {
                             return false;
                         }
                     });
+
                     if (matchingEntities.length == stackObj.condition.entities.length) {
                         entitiesMatch = true;
                     } else {
@@ -330,15 +342,26 @@ let evaluateStackObjects = function(intent) {
 
                 if (stackObj.condition.attributes && stackObj.condition.attributes.length > 0) {
                     let matchingAttributes = stackObj.condition.attributes.filter(stackObjectAttributeCondition => {
-                        if (stackObjectAttributeCondition.operator == "==") {
-                            if (stackObjectAttributeCondition.value == this.session.attributes[stackObjectAttributeCondition.name]) {
-                                return true;
-                            } else {
-                                return false;
+                        if (this.session.attributes[stackObjectAttributeCondition.name]) {
+                            if (stackObjectAttributeCondition.matcher) {
+                                if (this.session.attributes[stackObjectAttributeCondition.name]) {
+                                    return evaluateConditionMatcher.call(this, stackObjectAttributeCondition.matcher, this.session.attributes[stackObjectAttributeCondition.name].value);
+                                } else {
+                                    return false;
+                                }
                             }
-                        } else if (stackObjectAttributeCondition.operator == "!=") {
-                            if (stackObjectAttributeCondition.value != this.session.attributes[stackObjectAttributeCondition.name]) {
-                                return true;
+                            if (stackObjectAttributeCondition.operator == "==") {
+                                if (stackObjectAttributeCondition.value == this.session.attributes[stackObjectAttributeCondition.name].value) {
+                                    return true;
+                                } else {
+                                    return false;
+                                }
+                            } else if (stackObjectAttributeCondition.operator == "!=") {
+                                if (stackObjectAttributeCondition.value != this.session.attributes[stackObjectAttributeCondition.name].value) {
+                                    return true;
+                                } else {
+                                    return false;
+                                }
                             } else {
                                 return false;
                             }
@@ -346,6 +369,7 @@ let evaluateStackObjects = function(intent) {
                             return false;
                         }
                     });
+
                     if (matchingAttributes.length != stackObj.condition.attributes.length) {
                         return false;
                     }
@@ -502,6 +526,19 @@ let processActions = async function(stackMatch, botResponse) {
 }
 
 /**
+ * processConditionMatcher
+ * @param {*} value 
+ * @param {*} matcherName 
+ */
+let evaluateConditionMatcher = function(matcherName, value) {
+    if (this.conditionMatcherHandlers[matcherName]) {
+        return this.conditionMatcherHandlers[matcherName](this.session, value);
+    } else {
+        throw new Error("Missing condition matcher handler: " + matcherName);
+    }
+}
+
+/**
  * processPreActions
  * @param {*} stackMatch 
  */
@@ -527,6 +564,13 @@ let processPostActions = async function(stackMatch, botResponse) {
             throw new Error("Missing action handler: " + stackMatch.postAction);
         }
     }
+
+    // Remove short lived attributes
+    for (let attribute in this.session.attributes) {
+        if (this.session.attributes[attribute].lifespan && this.session.attributes[attribute].lifespan.toLowerCase() == "step") {
+            delete this.session.attributes[attribute];
+        }
+    }
 }
 
 /**
@@ -550,7 +594,7 @@ let initNewDialogTree = async function(stackMatch) {
 let textOutput = async function(text) {
     let match = ATTRIBUTE_MATCH.exec(text);
     if (match && match.length == 2) {
-        text = text.split(match[0]).join(this.session.attributes[match[1]]);
+        text = text.split(match[0]).join(this.session.attributes[match[1]].value);
     }
     match = ENTITY_MATCH.exec(text);
     if (match && match.length == 2) {
@@ -595,7 +639,7 @@ let queryUserInputAndEvaluate = async function(stackMatch) {
         // We save the entities found first
         if (botResponse.entities && botResponse.entities.length > 0) {
             for (let i = 0; i < botResponse.entities.length; i++) {
-                if (botResponse.entities[i].confidence > 0.3) {
+                if (botResponse.entities[i].confidence > 0.2) {
                     this.session.entities[botResponse.entities[i].entity] = botResponse.entities[i].value;
                 }
             }

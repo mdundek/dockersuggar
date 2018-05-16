@@ -32,6 +32,13 @@ exports.init = async() => {
             throw new Error("ChatBot dependency container not installed. Please run the command <dockersuggar installConversationalAgent> and try again.");
         }
 
+        let ducklingIp = await dockerController.getNetworkContainerIp("rasa_network", "dockersuggar_rasa_duckling");
+
+        // RASA Network not installed
+        if (!ducklingIp) {
+            throw new Error("ChatBot dependency network not installed. Please run the command <dockersuggar installConversationalAgent> and try again.");
+        }
+
         // RASA Duckling container is stopped or paused
         if (status.ducklingContainer.state == "stopped" || status.ducklingContainer.state == "exited") {
             spinner.text = 'Starting RASA Duckling container...';
@@ -62,7 +69,7 @@ exports.init = async() => {
         // If RASA is available, but model is not found
         if (status.online && status.models.length != 2) {
             // Train model
-            let respondedInTime = await self.trainModel();
+            let respondedInTime = await self.trainModel(false, ducklingIp);
             if (!respondedInTime) {
                 // Timed out, try again later
                 throw new Error("The dockersuggar model is not available yet, this migt take a couple of minutes. Please try again later.");
@@ -92,10 +99,23 @@ exports.installAndSetupRasa = async() => {
     spinner.text = 'Installing ChatBot...';
 
     try {
+        spinner.start();
+
         let images = await dockerController.listImages();
         let rasaImage = await self.pullRasaImage(images);
         let ducklingImage = await self.pullDucklingImage(images);
-        spinner.start();
+
+        let networks = await dockerController.listNetworks();
+        let rasaNetwork = networks.find(n => n.Name == "rasa_network");
+
+        // Create Rasa network if not present
+        if (!rasaNetwork) {
+            rasaNetwork = await dockerController.createNetwork({
+                name: "rasa_network",
+                driver: "bridge"
+            });
+        }
+
         if (rasaImage && ducklingImage) {
             let containers = await dockerController.listContainers();
             let rasaContainer = containers.find(r => r.names == "/dockersuggar_rasa_nlu");
@@ -103,14 +123,14 @@ exports.installAndSetupRasa = async() => {
                 spinner.text = 'Removing previous rasa container instance...';
                 await dockerController.deleteContainer(rasaContainer);
             }
-            await self.createAndStartRasaContainer(rasaImage);
+            await self.createAndStartRasaContainer(rasaImage, rasaNetwork.Id);
 
             let ducklingContainer = containers.find(r => r.names == "/dockersuggar_rasa_duckling");
             if (ducklingContainer) {
                 spinner.text = 'Removing previous duckling container instance...';
                 await dockerController.deleteContainer(ducklingContainer);
             }
-            await self.createAndStartDucklingContainer(ducklingImage);
+            await self.createAndStartDucklingContainer(ducklingImage, rasaNetwork.Id);
             spinner.stop();
         } else {
             throw new Error("Rasa installation aboarded");
@@ -164,7 +184,7 @@ exports.loadModel = () => {
  * trainModel
  * @param {*} delay 
  */
-exports.trainModel = (delay) => {
+exports.trainModel = (delay, ducklingIp) => {
     return new Promise((resolve, reject) => {
         spinner.text = 'Building training set...';
         spinner.start();
@@ -179,8 +199,9 @@ exports.trainModel = (delay) => {
                     let rasaConfigTensorflow = fs.readFileSync(path.join(__basedir, "resources", "rasa_nlu", "training", "config_tensorflow.yml")).toString();
                     rasaConfigTensorflow = rasaConfigTensorflow.replace("_data_", JSON.stringify(dataset, null, 4));
 
-                    let rasaConfigSklearn = fs.readFileSync(path.join(__basedir, "resources", "rasa_nlu", "training", "config_spacy.yml")).toString();
-                    rasaConfigSklearn = rasaConfigSklearn.replace("_data_", JSON.stringify(dataset, null, 4));
+                    let rasaConfigSpacy = fs.readFileSync(path.join(__basedir, "resources", "rasa_nlu", "training", "config_spacy.yml")).toString();
+                    rasaConfigSpacy = rasaConfigSpacy.replace("_data_", JSON.stringify(dataset, null, 4));
+                    rasaConfigSpacy = rasaConfigSpacy.replace("_ducklingip_", ducklingIp);
 
                     spinner.text = 'Training tensorflow dockersuggar model, this might take some minutes...';
                     let response = await request({
@@ -196,7 +217,7 @@ exports.trainModel = (delay) => {
                     response = await request({
                         method: 'POST',
                         uri: 'http://localhost:5000/train?project=dockersuggar_spacy',
-                        body: rasaConfigSklearn,
+                        body: rasaConfigSpacy,
                         headers: {
                             'content-type': 'application/x-yml'
                         },
@@ -228,6 +249,7 @@ exports.getStatus = (delay) => {
                 let containers = null;
                 let rasaContainer = null;
                 let ducklingContainer = null;
+
                 try {
                     containers = await dockerController.listContainers();
                     rasaContainer = containers.find(r => r.names == "/dockersuggar_rasa_nlu");
@@ -302,17 +324,19 @@ exports.getStatus = (delay) => {
  * createAndStartRasaContainer
  * @param {*} rasaImage 
  */
-exports.createAndStartRasaContainer = async(rasaImage) => {
+exports.createAndStartRasaContainer = async(rasaImage, networkId) => {
     spinner.text = 'Create ChatBot container...';
     let container = await dockerController.runImage({
         "name": "dockersuggar_rasa_nlu",
         "remove": false,
         "bgMode": true,
-        "shell": null,
-        "cmd": [],
+        "shell": false,
+        "cmd": null,
         "ports": {
             "5000": "5000"
         },
+        "network": true,
+        "networkId": networkId,
         "volumes": {
             "/app/projects": dataController.NLU_PROJECT_FOLDER,
             "/app/logs": dataController.NLU_LOGS_FOLDER,
@@ -328,14 +352,16 @@ exports.createAndStartRasaContainer = async(rasaImage) => {
  * createAndStartDucklingContainer
  * @param {*} ducklingImage 
  */
-exports.createAndStartDucklingContainer = async(ducklingImage) => {
+exports.createAndStartDucklingContainer = async(ducklingImage, networkId) => {
     spinner.text = 'Create Duckling container...';
     let container = await dockerController.runImage({
         "name": "dockersuggar_rasa_duckling",
         "remove": false,
         "bgMode": true,
-        "shell": null,
-        "cmd": [],
+        "shell": false,
+        "cmd": null,
+        "network": true,
+        "networkId": networkId,
         "ports": {
             "8000": "8000"
         },

@@ -1,0 +1,2 @@
+model_checkpoint_path: "/app/projects/dockersuggar_tensorflow/model_20180516-091545/intent_classifier_tensorflow_embedding.ckpt"
+all_model_checkpoint_paths: "/app/projects/dockersuggar_tensorflow/model_20180516-091545/intent_classifier_tensorflow_embedding.ckpt"

@@ -16,6 +16,7 @@
         "entities": [],
         "attributes": []
     },
+    "postAction": "exit",
     "responses": ["Ok, Hope I could help. Bye!"]
 }, {
     "name": "unhappy",

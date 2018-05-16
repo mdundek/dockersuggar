@@ -6,12 +6,12 @@
             "intent": null,
             "entities": [],
             "attributes": [{
-                "name": "found_container_settings",
-                "operator": "!=",
-                "value": null
+                "name": "run_settings",
+                "matcher": "has_attributes"
             }]
         },
-        "responses": ["Ok, @[image_name] it is.\nI will use previously used settings to run this container unless you tell me otherwise. Is there anything you wish to configure?"]
+        "preAction": "compute_settings_text",
+        "responses": ["Ok, @[image_name] it is.\nI will use previously used settings to run this container. Here is what I have: &[current_settings_text]\nIs there anything you wish to change?"]
     }, {
         "name": "do_configure_something",
         "condition": {

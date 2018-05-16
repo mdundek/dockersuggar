@@ -8,11 +8,14 @@
     "preAction": "match_system_entities_ports",
     "slots": [{
         "entity": "container_port",
+        "invalideResponses": ["Sorry, but this is not a valide port."],
         "questions": ["What container port would you like to map?"]
     }, {
         "entity": "host_port",
+        "invalideResponses": ["Sorry, but this is not a valide port."],
         "questions": ["What host port would you like to map?"]
     }],
+    "postAction": "store_port_configuration",
     "responses": ["Done, anything else you want to configure?"]
 }, {
     "name": "help",

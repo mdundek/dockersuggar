@@ -3,8 +3,12 @@ language: "en"
 pipeline:
 - name: "nlp_spacy"
 - name: "tokenizer_spacy"
+- name: "ner_duckling_http"
+  url: "http://_ducklingip_:8000"
+  dimensions: ["time", "number", "amount-of-money", "distance"]
 - name: "ner_crf"
 - name: "ner_synonyms"
+
 
 # data contains the same json, as described in the training data section
 data: _data_

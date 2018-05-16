@@ -677,7 +677,12 @@ program
 
                 dataController.deleteModelData();
                 await rasaController.installAndSetupRasa();
-                let respondedInTime = await rasaController.trainModel(true);
+
+                let ducklingIp = await dockerController.getNetworkContainerIp("rasa_network", "dockersuggar_rasa_duckling");
+                if (!ducklingIp) {
+                    throw new Error("There is a RASA network problem, please reinstall the assistant with the command 'dockersuggar installConversationalAgent'");
+                }
+                let respondedInTime = await rasaController.trainModel(true, ducklingIp);
                 if (!respondedInTime) {
                     // Timed out, try again later
                     console.log(chalk.grey("The dockersuggar model is still training. The assistant will be available as soon as the training is complete."));
