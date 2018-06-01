@@ -1,6 +1,6 @@
 {
     "name": "dockersuggar",
-    "version": "0.1.4",
+    "version": "0.2.1",
     "description": "A CLI designed to simplify and automate your local and remote Docker commands",
     "keywords": [
         "cli",
@@ -36,6 +36,7 @@
         "chatito": "^1.2.2",
         "docker-cli-js": "^2.2.0",
         "dockerode": "^2.5.5",
+        "e-nlu-chatbot": "file:../e-nlu-chatbot",
         "figlet": "^1.2.0",
         "fs-extra": "^6.0.0",
         "inquirer": "^5.2.0",
@@ -44,6 +45,7 @@
         "ora": "^2.1.0",
         "request": "^2.85.0",
         "request-promise": "^4.2.2",
+        "shortid": "^2.2.8",
         "tar": "^4.4.2",
         "validator": "^9.4.1"
     },

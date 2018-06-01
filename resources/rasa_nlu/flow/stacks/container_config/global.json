@@ -1,0 +1,9 @@
+[{
+    "name": "help",
+    "condition": {
+        "intent": "help",
+        "entities": [],
+        "attributes": []
+    },
+    "responses": ["You can ask me to configure ports, networks, environement variables and volumes. I can also configure the container to run in detached mode, or execute a specific command on start. For instance, if you want to map a container port to your host port, say something like 'Map the port 1234 to the container port 5678'."]
+}]

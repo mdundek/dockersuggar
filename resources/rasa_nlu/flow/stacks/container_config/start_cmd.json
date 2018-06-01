@@ -1,0 +1,40 @@
+[{
+        "name": "set_start_command",
+        "condition": {
+            "intent": "set_startcommand",
+            "entities": [],
+            "attributes": []
+        },
+        "slots": [{
+            "entity": "set_command",
+            "questions": ["Ok, tell me what command to execute when the container starts"]
+        }],
+        "action": "store_cmd_configuration",
+        "responses": ["Start copmmand set, anything else you want to configure?"]
+    },
+    {
+        "name": "undo_set_start_command",
+        "condition": {
+            "intent": "undo_setcommand",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.cmd",
+                "matcher": "array_not_empty"
+            }]
+        },
+        "action": "undo_store_cmd_configuration",
+        "responses": ["Start command removed, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_undo_set_command",
+        "condition": {
+            "intent": "undo_setcommand",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.cmd",
+                "matcher": "array_empty"
+            }]
+        },
+        "responses": ["The default image command has not been set by you, there is nothing to undo here. Anything else you want to configure?"]
+    }
+]

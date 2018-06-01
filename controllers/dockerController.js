@@ -29,13 +29,16 @@ let hasParam = (o, p) => {
 exports.init = (remote) => {
     return new Promise((resolve, reject) => {
         var socket;
+
         // Remote dockerd
         if (remote) {
+
             dataController.lookupRemoteServer(remote).then((remoteConfig) => {
                 if (!remoteConfig) {
                     reject(new Error("Remote server configuration not found"));
                     return;
                 }
+
                 let dRemoteCfg = {
                     protocol: remoteConfig.settings.protocol,
                     host: remoteConfig.settings.host,
@@ -46,6 +49,7 @@ exports.init = (remote) => {
                     dRemoteCfg.cert = fs.readFileSync(remoteConfig.settings.cert);
                     dRemoteCfg.key = fs.readFileSync(remoteConfig.settings.key);
                 }
+
                 docker = new Docker(dRemoteCfg);
                 resolve();
             }).catch((err) => {
@@ -419,7 +423,7 @@ exports.execInContainer = (container, commands) => {
  * startContainer
  * @param {*} container 
  */
-exports.startContainer = (container) => {
+exports.startContainer = (container, args) => {
     return new Promise((resolve, reject) => {
         let dContainer = container["container id"] ? docker.getContainer(container["container id"]) : container;
         if (!dContainer) {
@@ -508,21 +512,24 @@ exports.stopContainer = (container) => {
  */
 exports.buildDockerfile = (settings, dockerfileData) => {
     return new Promise((resolve, reject) => {
-        require('child_process').execFile('tar', ['-cjf', 'Dockerfile.tar', '-C', dockerfileData.path, '.'], (err, stdout, stderr) => {
+        let tmpFile = path.join(require('os').homedir(), 'Dockerfile.tar')
+        require('child_process').execFile('tar', ['-cjf', tmpFile, '-C', dockerfileData.path, '.'], (err, stdout, stderr) => {
             if (err) {
                 reject(err);
             } else {
                 let imgPath = "";
                 imgPath += hasParam(settings, "registry") ? settings.registry + "/" : "";
                 imgPath += (hasParam(settings, "repository") ? settings.repository : dockerfileData.repository) + ":" + dockerfileData.tag;
-
-                var data = fs.createReadStream('./Dockerfile.tar');
+                var data = fs.createReadStream(tmpFile);
                 docker.buildImage(data, {
                     rm: true,
                     t: imgPath.toLocaleLowerCase()
                 }, (err, stream) => {
                     if (err) {
-                        fs.unlinkSync('./Dockerfile.tar');
+                        setTimeout(() => {
+                            fs.unlinkSync(tmpFile);
+                            resolve();
+                        }, 1000);
                         reject(err);
                     } else {
                         stream.on("data", (chunk) => {
@@ -540,13 +547,48 @@ exports.buildDockerfile = (settings, dockerfileData) => {
                         });
 
                         stream.on('end', function() {
-                            fs.unlinkSync('./Dockerfile.tar');
-                            resolve();
+                            setTimeout(() => {
+                                fs.unlinkSync(tmpFile);
+                                resolve();
+                            }, 1000);
                         });
                     }
                 });
             }
         });
+    });
+}
+
+/**
+ * copyFileToContainer
+ * @param {*} container 
+ * @param {*} filePath 
+ */
+exports.copyFileToContainer = (container, filePath, destinationPath) => {
+    return new Promise((resolve, reject) => {
+        let tmpFile = path.join(require('os').homedir(), 'dockersuggararchive.tar')
+        let dContainer = container["container id"] ? docker.getContainer(container["container id"]) : container;
+        require('child_process').execFile('tar', ['-cjf', tmpFile, '-C', filePath, '.'], (err, stdout, stderr) => {
+            if (err) {
+                reject(err);
+            } else {
+                var data = fs.createReadStream(tmpFile);
+                dContainer.putArchive(data, {
+                    "path": destinationPath,
+                    "noOverwriteDirNonDir": 0
+                }, (err, response) => {
+                    setTimeout(() => {
+                        fs.unlinkSync(tmpFile);
+                    }, 1000);
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+
+            }
+        })
     });
 }
 
@@ -594,25 +636,29 @@ exports.pushImage = (image, settings) => {
         if (!dImage) {
             reject(new Error("Image not found"));
         } else {
-            let opt = {};
-            if (settings.auth) {
-                opt.authconfig = {
-                    username: settings.username,
-                    password: settings.password,
-                    auth: '',
-                    email: settings.email,
-                    serveraddress: settings.server
-                };
-            }
+            spinner.text = 'Pushing image...';
+            spinner.start();
 
-            dImage.push(opt, function(err, stream) {
-                if (err) {
-                    reject(err);
+            var spawn = require('child_process').spawn;
+            let lastErrorMsg = null;
+            let lines;
+            var child = spawn("docker login -u " + settings.username + " -p " + settings.password + " && docker push " + image.repository + ":" + image.tag, {
+                shell: true
+            });
+            child.stderr.on('data', function(data) {
+                lastErrorMsg = data.toString();
+            });
+            child.stdout.on('data', function(data) {
+                lines = data.toString().split("\n").filter(l => l.length > 0);
+                spinner.text = lines[lines.length - 1];
+            });
+            child.on('exit', function(exitCode) {
+                spinner.stop();
+                if (exitCode == 0) {
+                    console.log("\n" + lines[lines.length - 1]);
+                    resolve();
                 } else {
-                    stream.pipe(process.stdout);
-                    stream.on('end', function() {
-                        resolve();
-                    });
+                    reject(new Error(lastErrorMsg));
                 }
             });
         }
@@ -627,14 +673,8 @@ exports.pushImage = (image, settings) => {
 exports.pullImage = (imageName, settings) => {
     return new Promise((resolve, reject) => {
         let opt = {};
-        if (settings.auth) {
-            opt.authconfig = {
-                username: settings.username,
-                password: settings.password,
-                auth: '',
-                email: settings.email,
-                serveraddress: settings.server
-            };
+        if (settings.serveraddress) {
+            opt.authconfig = settings;
         }
 
         if (imageName.indexOf(":") == -1) {
@@ -644,7 +684,7 @@ exports.pullImage = (imageName, settings) => {
         spinner.text = 'Pulling image...';
         spinner.start();
 
-        docker.pull(imageName, (err, stream) => {
+        docker.pull(imageName, opt, (err, stream) => {
             if (err) {
                 reject(err);
             } else {
@@ -671,17 +711,30 @@ exports.pullImage = (imageName, settings) => {
  */
 exports.createNetwork = (params) => {
     return new Promise((resolve, reject) => {
-        docker.createNetwork({
+
+        let networkConfig = {
             "Name": params.name,
-            "Driver": params.driver // overlay, bridge (default), macvlan
-                // "IPAM": {
-                //     "Config": [{
-                //         "Subnet": "172.20.0.0/16",
-                //         "IPRange": "172.20.10.0/24",
-                //         "Gateway": "172.20.10.12"
-                //     }]
-                // }
-        }, function(err, network) {
+            "Driver": params.driver
+        };
+
+        if (params.subnet.length > 0 || params.iprange.length > 0 || params.gateway.length > 0) {
+            networkConfig.IPAM = {
+                "Config": [{}]
+            };
+
+            if (params.subnet.length > 0) {
+                networkConfig.IPAM.Config[0].Subnet = params.subnet;
+            }
+
+            if (params.iprange.length > 0) {
+                networkConfig.IPAM.Config[0].IPRange = params.iprange;
+            }
+
+            if (params.gateway.length > 0) {
+                networkConfig.IPAM.Config[0].Gateway = params.gateway;
+            }
+        }
+        docker.createNetwork(networkConfig, function(err, network) {
             if (err) {
                 reject(err);
             } else {
@@ -807,6 +860,7 @@ exports.createContainerFromImage = async(params, image) => {
     var optsc = {
         'name': params.name,
         'Image': image.repository + ':' + image.tag,
+        'Volumes': {},
         'HostConfig': {
             "AutoRemove": params.remove ? true : false,
             'Binds': [],
@@ -845,6 +899,7 @@ exports.runImage = async(params, image) => {
     var optsc = {
         'name': params.name,
         'Image': image.repository + ':' + image.tag,
+        'Volumes': {},
         'HostConfig': {
             "AutoRemove": params.remove ? true : false,
             'Binds': [],
@@ -1295,7 +1350,10 @@ exports.createContainer = (optsc, params) => {
 let populateHostConfig = (settings, optsc) => {
     if (settings.volumes) {
         for (let vol in settings.volumes) {
-            optsc.HostConfig.Binds.push(settings.volumes[vol] + ":" + vol);
+            optsc.Volumes[vol] = {};
+            if (settings.volumes[vol].length > 0) {
+                optsc.HostConfig.Binds.push(settings.volumes[vol] + ":" + vol);
+            }
         }
     }
 

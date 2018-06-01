@@ -14,81 +14,88 @@ const chatito = require("chatito");
 const spinner = ora('');
 spinner.color = 'yellow';
 
+let rasaUrl = "https://mdundek.space/rasanlu";
+let basicAuth = {
+    "user": "mdundek",
+    "pass": "li14ebe14",
+    'sendImmediately': false
+};
+
 exports.init = async() => {
-    spinner.start();
-    spinner.text = 'Initializing ChatBot...';
+    // spinner.start();
+    // spinner.text = 'Initializing ChatBot...';
 
-    try {
-        // Get RASA status
-        let status = await self.getStatus();
+    // try {
+    //     // Get RASA status
+    //     let status = await self.getStatus();
 
-        // RASA not installed
-        if (!status.online && !status.rasaContainer) {
-            throw new Error("ChatBot container not installed. Please run the command <dockersuggar installConversationalAgent> and try again.");
-        }
+    //     // RASA not installed
+    //     if (!status.online && !status.rasaContainer) {
+    //         throw new Error("ChatBot container not installed. Please run the command <dockersuggar installConversationalAgent> and try again.");
+    //     }
 
-        // RASA not installed
-        if (!status.ducklingContainer) {
-            throw new Error("ChatBot dependency container not installed. Please run the command <dockersuggar installConversationalAgent> and try again.");
-        }
+    //     // RASA not installed
+    //     if (!status.ducklingContainer) {
+    //         throw new Error("ChatBot dependency container not installed. Please run the command <dockersuggar installConversationalAgent> and try again.");
+    //     }
 
-        let ducklingIp = await dockerController.getNetworkContainerIp("rasa_network", "dockersuggar_rasa_duckling");
+    //     let ducklingIp = await dockerController.getNetworkContainerIp("rasa_network", "dockersuggar_rasa_duckling");
 
-        // RASA Network not installed
-        if (!ducklingIp) {
-            throw new Error("ChatBot dependency network not installed. Please run the command <dockersuggar installConversationalAgent> and try again.");
-        }
+    //     // RASA Network not installed
+    //     if (!ducklingIp) {
+    //         throw new Error("ChatBot dependency network not installed. Please run the command <dockersuggar installConversationalAgent> and try again.");
+    //     }
 
-        // RASA Duckling container is stopped or paused
-        if (status.ducklingContainer.state == "stopped" || status.ducklingContainer.state == "exited") {
-            spinner.text = 'Starting RASA Duckling container...';
-            await dockerController.startContainer(status.ducklingContainer);
-        } else if (status.ducklingContainer.state == "paused") {
-            spinner.text = 'Unpausing RASA Duckling container...';
-            await dockerController.unpauseContainer(status.ducklingContainer);
-        }
+    //     // RASA Duckling container is stopped or paused
+    //     if (status.ducklingContainer.state == "stopped" || status.ducklingContainer.state == "exited") {
+    //         spinner.text = 'Starting RASA Duckling container...';
+    //         await dockerController.startContainer(status.ducklingContainer);
+    //     } else if (status.ducklingContainer.state == "paused") {
+    //         spinner.text = 'Unpausing RASA Duckling container...';
+    //         await dockerController.unpauseContainer(status.ducklingContainer);
+    //     }
 
-        // RASA container is stopped or paused
-        if (!status.online && status.rasaContainer) {
-            // Start container if stopped
-            if (status.rasaContainer.state == "stopped" || status.rasaContainer.state == "exited") {
-                spinner.text = 'Starting RASA container...';
-                await dockerController.startContainer(status.rasaContainer);
-            } else if (status.rasaContainer.state == "paused") {
-                spinner.text = 'Unpausing RASA container...';
-                await dockerController.unpauseContainer(status.rasaContainer);
-            }
-            // RASA container error, need to reinstall
-            else {
-                throw new Error("ChatBot container seems to be installed, but unavailable. Try running the command <dockersuggar installConversationalAgent> to fix the problem.");
-            }
-            // Get RASA status again to see if everything is ok now
-            status = await self.getStatus(true);
-        }
+    //     // RASA container is stopped or paused
+    //     if (!status.online && status.rasaContainer) {
+    //         // Start container if stopped
+    //         if (status.rasaContainer.state == "stopped" || status.rasaContainer.state == "exited") {
+    //             spinner.text = 'Starting RASA container...';
+    //             await dockerController.startContainer(status.rasaContainer);
+    //         } else if (status.rasaContainer.state == "paused") {
+    //             spinner.text = 'Unpausing RASA container...';
+    //             await dockerController.unpauseContainer(status.rasaContainer);
+    //         }
+    //         // RASA container error, need to reinstall
+    //         else {
+    //             throw new Error("ChatBot container seems to be installed, but unavailable. Try running the command <dockersuggar installConversationalAgent> to fix the problem.");
+    //         }
+    //         // Get RASA status again to see if everything is ok now
+    //         status = await self.getStatus(true);
+    //     }
 
-        // If RASA is available, but model is not found
-        if (status.online && status.models.length != 2) {
-            // Train model
-            let respondedInTime = await self.trainModel(false, ducklingIp);
-            if (!respondedInTime) {
-                // Timed out, try again later
-                throw new Error("The dockersuggar model is not available yet, this migt take a couple of minutes. Please try again later.");
-            }
-            // Get status again, should all be good now
-            status = await self.getStatus();
-        }
+    //     // If RASA is available, but model is not found
+    //     if (status.online && status.models.length != 2) {
+    //         // Train model
+    //         let respondedInTime = await self.trainModel(false, ducklingIp);
+    //         if (!respondedInTime) {
+    //             // Timed out, try again later
+    //             throw new Error("The dockersuggar model is not available yet, this migt take a couple of minutes. Please try again later.");
+    //         }
+    //         // Get status again, should all be good now
+    //         status = await self.getStatus();
+    //     }
 
-        if (!status.online || !status.rasaContainer || status.models.length != 2) {
-            throw new Error("ChatBot container seems to be installed, but unavailable. Try running the command <dockersuggar installConversationalAgent> to fix the problem.");
-        }
-        if (!status.inMemory) {
-            await self.loadModel();
-        }
-        spinner.stop();
-    } catch (e) {
-        spinner.stop();
-        throw e;
-    }
+    //     if (!status.online || !status.rasaContainer || status.models.length != 2) {
+    //         throw new Error("ChatBot container seems to be installed, but unavailable. Try running the command <dockersuggar installConversationalAgent> to fix the problem.");
+    //     }
+    //     if (!status.inMemory) {
+    //         await self.loadModel();
+    //     }
+    //     spinner.stop();
+    // } catch (e) {
+    //     spinner.stop();
+    //     throw e;
+    // }
 }
 
 /**
@@ -156,14 +163,16 @@ exports.loadModel = () => {
                 spinner.text = 'Loading tensorflow models...';
                 let response = await request({
                     method: 'GET',
-                    uri: 'http://localhost:5000/parse?q=Hello&project=dockersuggar_tensorflow',
+                    uri: rasaUrl + '/parse?q=Hello&project=dockersuggar_tensorflow',
+                    auth: basicAuth,
                     timeout: timeout,
                     json: true // Automatically stringifies the body to JSON
                 });
                 spinner.text = 'Loading spacy models, this might take up to a minute...';
                 response = await request({
                     method: 'GET',
-                    uri: 'http://localhost:5000/parse?q=Hello&project=dockersuggar_spacy',
+                    uri: rasaUrl + '/parse?q=Hello&project=dockersuggar_spacy',
+                    auth: basicAuth,
                     timeout: timeout,
                     json: true // Automatically stringifies the body to JSON
                 });
@@ -190,11 +199,12 @@ exports.trainModel = (delay, ducklingIp) => {
         spinner.start();
         setTimeout(() => {
             (async() => {
+                let start = null;
+                let timeout = 120 * 1000;
                 try {
                     let dslDefinitionString = fs.readFileSync(path.join(__basedir, "resources", "rasa_nlu", "training", "dockersuggar.chatito")).toString().trim();
                     const dataset = chatito.datasetFromString(dslDefinitionString);
-                    let start = new Date().getTime();
-                    let timeout = 120 * 1000;
+                    start = new Date().getTime();
 
                     let rasaConfigTensorflow = fs.readFileSync(path.join(__basedir, "resources", "rasa_nlu", "training", "config_tensorflow.yml")).toString();
                     rasaConfigTensorflow = rasaConfigTensorflow.replace("_data_", JSON.stringify(dataset, null, 4));
@@ -203,20 +213,22 @@ exports.trainModel = (delay, ducklingIp) => {
                     rasaConfigSpacy = rasaConfigSpacy.replace("_data_", JSON.stringify(dataset, null, 4));
                     rasaConfigSpacy = rasaConfigSpacy.replace("_ducklingip_", ducklingIp);
 
-                    spinner.text = 'Training tensorflow dockersuggar model, this might take some minutes...';
+                    spinner.text = 'Training intents dockersuggar model, this might take some minutes...';
                     let response = await request({
                         method: 'POST',
-                        uri: 'http://localhost:5000/train?project=dockersuggar_tensorflow',
+                        uri: rasaUrl + '/train?project=dockersuggar_tensorflow',
+                        auth: basicAuth,
                         body: rasaConfigTensorflow,
                         headers: {
                             'content-type': 'application/x-yml'
                         },
                         timeout: timeout
                     });
-                    spinner.text = 'Training spacy dockersuggar model, this might take some minutes...';
+                    spinner.text = 'Training entities dockersuggar model, this might take some minutes...';
                     response = await request({
                         method: 'POST',
-                        uri: 'http://localhost:5000/train?project=dockersuggar_spacy',
+                        uri: rasaUrl + '/train?project=dockersuggar_spacy',
+                        auth: basicAuth,
                         body: rasaConfigSpacy,
                         headers: {
                             'content-type': 'application/x-yml'
@@ -228,7 +240,7 @@ exports.trainModel = (delay, ducklingIp) => {
                 } catch (e) {
                     spinner.stop();
                     // Detect timeout error, does not cause model from being trained
-                    if ((new Date().getTime() - start) >= timeout) {
+                    if (start && (new Date().getTime() - start) >= timeout) {
                         resolve(false);
                     } else {
                         reject(e);
@@ -269,7 +281,8 @@ exports.getStatus = (delay) => {
 
                     let response = await request({
                         method: 'GET',
-                        uri: 'http://localhost:5000/status',
+                        uri: rasaUrl + '/status',
+                        auth: basicAuth,
                         json: true // Automatically stringifies the body to JSON
                     });
 
@@ -326,7 +339,7 @@ exports.getStatus = (delay) => {
  */
 exports.createAndStartRasaContainer = async(rasaImage, networkId) => {
     spinner.text = 'Create ChatBot container...';
-    let container = await dockerController.runImage({
+    let rasaContainer = await dockerController.runImage({
         "name": "dockersuggar_rasa_nlu",
         "remove": false,
         "bgMode": true,
@@ -338,13 +351,12 @@ exports.createAndStartRasaContainer = async(rasaImage, networkId) => {
         "network": true,
         "networkId": networkId,
         "volumes": {
-            "/app/projects": dataController.NLU_PROJECT_FOLDER,
-            "/app/logs": dataController.NLU_LOGS_FOLDER,
-            "/app/data": dataController.NLU_DATA_FOLDER,
+            "/app/projects": "",
+            "/app/logs": "",
+            "/app/data": "",
         }
     }, rasaImage);
-    let containers = await dockerController.listContainers();
-    let rasaContainer = containers.find(r => r.names == "/dockersuggar_rasa_nlu");
+    await dockerController.copyFileToContainer(rasaContainer, path.join(__basedir, "resources", "rasa_nlu", "projects"), "/app/projects");
     return rasaContainer;
 }
 

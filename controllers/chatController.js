@@ -1,6 +1,6 @@
 "use strict"
 
-const BotDialog = require("../chatbot/BotDialog");
+const BotDialog = require("e-nlu-chatbot");
 var { prompt } = require('inquirer');
 const dockerController = require("./dockerController");
 const dataController = require("./dataController");
@@ -8,60 +8,99 @@ const chalk = require("chalk");
 var validator = require("validator");
 let path = require("path");
 
-exports.init = () => {
+const ConfigContainerActions = require("./chatActions/configContainer");
+const SlotValidators = require("./chatValidators/validators");
+const Matchers = require("./conditionMatchers/matcher");
+const MessageFormatter = require("./chatMessageFormatter/messageFormatter");
+
+exports.init = async() => {
     let botDialog = new BotDialog({
         "flowBasePath": path.join(__basedir, "resources", "rasa_nlu", "flow"),
         "flowName": "dockersuggar",
-        "rasaUri": "http://localhost:5000",
-        "intentProjectModel": "dockersuggar_tensorflow",
-        "entityProjectModel": "dockersuggar_spacy",
-        "baseNluConfidenceThreshold": 0.7
+        "rasaUri": "https://mdundek.space/rasanlu",
+        "nluProject": "dockersuggar",
+        "baseNluConfidenceThreshold": 0.79
     });
 
-    botDialog.on("text", async(text, session) => {
-        console.log(chalk.bold(text));
-    });
-
+    botDialog.registerSlotFiller(fillSlot.bind(this, botDialog.id));
+    botDialog.on("text", MessageFormatter.process);
     botDialog.on("missmatch", async(nlpResult, stack, session) => {
         await dataController.logNlpMissmatch(nlpResult, stack, session);
     });
 
-    botDialog.addConditionMatchHandler("has_attributes", matcher_has_attributes);
-    botDialog.addConditionMatchHandler("has_no_attributes", matcher_has_no_attributes);
+    botDialog.addConditionMatchHandler("has_attributes", Matchers.matcher_has_attributes);
+    botDialog.addConditionMatchHandler("has_no_attributes", Matchers.matcher_has_no_attributes);
+    botDialog.addConditionMatchHandler("array_not_empty", Matchers.matcher_array_not_empty);
+    botDialog.addConditionMatchHandler("array_empty", Matchers.matcher_array_empty);
 
     botDialog.addActionHandler("select_image", action_selectImage);
+    botDialog.addActionHandler("select_network", action_selectNetwork);
     botDialog.addActionHandler("list_images", action_listImages);
     botDialog.addActionHandler("list_containers", action_listContainers);
-    botDialog.addActionHandler("collect_image_config", action_collectImageConfig);
-    botDialog.addActionHandler("list_specific_image_setting", action_listSpecificImageSetting);
-    botDialog.addActionHandler("list_image_settings", action_listImageSettings);
-    botDialog.addActionHandler("match_system_entities_ports", action_matchEntitiesPorts);
-    botDialog.addActionHandler("dump_session", action_dumpSession);
-    botDialog.addActionHandler("compute_settings_text", action_computeSettingsText);
-    botDialog.addActionHandler("store_port_configuration", action_storePortConfiguration);
+
+    botDialog.addActionHandler("collect_image_config", ConfigContainerActions.action_collectImageConfig);
+    botDialog.addActionHandler("list_specific_image_setting", ConfigContainerActions.action_listSpecificImageSetting);
+    botDialog.addActionHandler("list_image_settings", ConfigContainerActions.action_listImageSettings);
+    botDialog.addActionHandler("compute_settings_text", ConfigContainerActions.action_computeSettingsText);
+    botDialog.addActionHandler("store_port_configuration", ConfigContainerActions.action_storePortConfiguration);
+    botDialog.addActionHandler("store_volume_configuration", ConfigContainerActions.action_storeVolumeConfiguration);
+    botDialog.addActionHandler("store_env_variable_configuration", ConfigContainerActions.action_storeEnvVariableConfiguration);
+    botDialog.addActionHandler("remove_configured_volume", ConfigContainerActions.action_removeConfiguredVolume);
+    botDialog.addActionHandler("remove_configured_port", ConfigContainerActions.action_removeConfiguredPort);
+    botDialog.addActionHandler("remove_configured_env_variable", ConfigContainerActions.action_removeConfiguredEnvVariable);
+    botDialog.addActionHandler("remove_configured_network", ConfigContainerActions.action_removeConfiguredNetwork);
+    botDialog.addActionHandler("store_cmd_configuration", ConfigContainerActions.action_storeCmdConfiguration);
+    botDialog.addActionHandler("undo_store_cmd_configuration", ConfigContainerActions.action_undoCommand);
+    botDialog.addActionHandler("set_run_shell", ConfigContainerActions.action_setRunShell);
+    botDialog.addActionHandler("set_no_shell", ConfigContainerActions.action_setNoShell);
+    botDialog.addActionHandler("set_detached", ConfigContainerActions.action_setDetached);
+    botDialog.addActionHandler("set_foreground", ConfigContainerActions.action_setForeground);
+    botDialog.addActionHandler("set_remove_on_exit", ConfigContainerActions.action_setRemoveOnExit);
+    botDialog.addActionHandler("set_dont_remove_on_exit", ConfigContainerActions.action_setDontRemoveOnExit);
+
     botDialog.addActionHandler("exit", action_exit);
     botDialog.addActionHandler("clean_up", action_cleanUp);
+    botDialog.addActionHandler("dump_session", action_dumpSession);
 
+    botDialog.addSlotValidator("image_name", SlotValidators.validate_imageName);
+    botDialog.addSlotValidator("container_port", SlotValidators.validate_port);
+    botDialog.addSlotValidator("host_port", SlotValidators.validate_port);
 
-    botDialog.addSlotValidator("image_name", validate_imageName);
-    botDialog.addSlotValidator("container_port", validate_port);
-    botDialog.addSlotValidator("host_port", validate_port);
+    await botDialog.start();
 
-    botDialog.start();
+    while (true) {
+        let promptResponse = await prompt({
+            type: 'input',
+            name: 'userInput',
+            message: ':'
+        });
+        await botDialog.submit(promptResponse.userInput);
+    }
 }
 
 /**
- * CONDITION MATCHER: matcher_has_attributes
+ * fillSlot
+ * @param {*} slotQuestionText 
  */
-let matcher_has_attributes = (session, value) => {
-    return Object.keys(value).length > 0;
-}
-
-/**
- * CONDITION MATCHER: matcher_has_no_attributes
- */
-let matcher_has_no_attributes = (session, value) => {
-    return Object.keys(value).length == 0;
+let fillSlot = function(dialogId, slotQuestionText) {
+    return new Promise((resolve, reject) => {
+        MessageFormatter.process(slotQuestionText).then(() => {
+            prompt({
+                type: 'input',
+                name: 'userInput',
+                message: ':',
+                validate: (data) => {
+                    if (data.trim().length == 0) {
+                        return "Sorry, but I need this information to proceed.";
+                    } else {
+                        return true;
+                    }
+                }
+            }).then(promptResponse => {
+                resolve(promptResponse.userInput);
+            });
+        });
+    });
 }
 
 /**
@@ -101,6 +140,45 @@ let action_selectImage = async function(session) {
 }
 
 /**
+ * action_selectNetwork
+ * @param {*} session 
+ */
+let action_selectNetwork = async function(session) {
+    let networks = await dockerController.listNetworks();
+    if (networks.length == 0) {
+        console.log(chalk.grey("There are no networks available."));
+        return;
+    }
+    networks.forEach((network, i) => {
+        console.log(
+            (i + 1) + ": " +
+            chalk.redBright(network.Name)
+        );
+    });
+
+    const questions = [{
+        type: 'input',
+        name: 'index',
+        message: ':',
+        validate: (index) => {
+            if (validateIndexResponse(networks, index)) {
+                return true;
+            } else {
+                return "PLease select one of the above networks please";
+            }
+        }
+    }];
+
+    let networkResponse = await prompt(questions);
+    let nw = networks[parseInt(networkResponse.index) - 1];
+
+    session.attributes.run_settings.value.network = true;
+    session.attributes.run_settings.value.networkId = nw.Id;
+
+    return nw.Id;
+}
+
+/**
  * action_exit
  * @param {*} session 
  */
@@ -113,10 +191,8 @@ let action_exit = async function(session) {
  * @param {*} session 
  */
 let action_cleanUp = async function(session) {
-    session = {
-        "entities": {},
-        "attributes": {}
-    };
+    session.entities = {};
+    session.attributes = {};
 }
 
 /**
@@ -183,272 +259,11 @@ let padContainerStatus = (label) => {
 }
 
 /**
- * ENTYTY VALIDATOR: validator_image
- */
-let validate_imageName = async function(imageName) {
-    let imageDetails = imageName.split(":");
-    if (imageDetails.length == 2 && imageDetails[1] == "latest") {
-        imageDetails.splice(1, 1);
-    }
-    let images = await dockerController.listImages();
-
-    let imageMatches = images.filter(i => {
-        if (i.repository.toLowerCase() == imageDetails[0].toLowerCase()) {
-            if (imageDetails.length == 1) {
-                return true;
-            } else {
-                if (i.tag == imageDetails[1]) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        }
-    });
-
-    let returnMatch = null;
-    if (imageMatches.length == 1) {
-        returnMatch = imageMatches[0].repository + ":" + imageMatches[0].tag;
-    } else if (imageMatches.length > 1) {
-        let latest = imageMatches.find(i => i.tag == "latest");
-        if (latest) {
-            returnMatch = latest.repository + ":" + latest.tag;
-        } else {
-            imageMatches.sort((a, b) => {
-                if (a.created < b.created)
-                    return -1;
-                if (a.created > b.created)
-                    return 1;
-                return 0;
-            });
-            returnMatch = imageMatches[imageMatches.length - 1].repository + ":" + imageMatches[imageMatches.length - 1].tag;
-        }
-    }
-
-    return returnMatch;
-}
-
-/**
- * validate_port
- * @param {*} port 
- */
-let PORT_MATCH = /^([0-9]{1,4}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$/;
-let validate_port = async function(port) {
-    if (port.match(PORT_MATCH)) {
-        return port;
-    } else {
-        return null;
-    }
-}
-
-/**
- * action_collectImageConfig
- * @param {*} session 
- */
-let action_collectImageConfig = async function(session) {
-    let images = await dockerController.findImagesByName(session.entities.image_name);
-    let previousSettings = await dataController.lookupImageRunConfig(images[0]);
-    session.attributes.run_settings = {
-        value: previousSettings ? previousSettings.settings : {},
-        lifespan: "default"
-    };
-}
-
-/**
- * action_computeSettingsText
- * @param {*} session 
- */
-let action_computeSettingsText = async function(session) {
-    let responses = await getSpecificImageSetting.call(this, session, "");
-    session.attributes.current_settings_text = {
-        value: responses.length > 0 ? ("\n" + responses.join("\n") + "\n") : "",
-        lifespan: "step"
-    };
-}
-
-/**
- * action_storePortConfiguration
- * @param {*} session 
- */
-let action_storePortConfiguration = async function(session) {
-    if (!session.attributes.run_settings.value.ports) {
-        session.attributes.run_settings.value.ports = {};
-    }
-
-    session.attributes.run_settings.value.ports[session.entities.container_port] = session.entities.host_port;
-
-    delete session.entities.container_port;
-    delete session.entities.host_port;
-}
-
-/**
- * action_listImageSettings
- * @param {*} session 
- */
-let action_listImageSettings = async function(session) {
-    let responses = await getSpecificImageSetting.call(this, session, "");
-    if (responses.length == 0) {
-        responses.push("Actually there is nothing special to report , no environement variables, volumes or ports have been configures.");
-    }
-    console.log(responses.join("\n"));
-}
-
-/**
- * action_listSpecificImageSetting
- * @param {*} session 
- */
-let action_listSpecificImageSetting = async function(session) {
-    let responses = await getSpecificImageSetting.call(this, session, session.entities.setting_type);
-    delete session.entities.setting_type;
-    if (responses.length == 0) {
-        responses.push("Actually there is nothing special to report , no environement variables, volumes or ports have been configures.");
-    }
-    console.log(responses.join("\n"));
-}
-
-/**
- * getSpecificImageSetting
- * @param {*} session 
- * @param {*} settingType 
- */
-let getSpecificImageSetting = async function(session, settingType) {
-    let responses = [];
-    switch (settingType.toLowerCase()) {
-        case "port":
-        case "ports":
-            let ports = session.attributes.run_settings.value.ports;
-            for (let containerPort in ports) {
-                responses.push(`The container port ${containerPort} is mapped to the host port ${ports[containerPort]}.`);
-            }
-            if (responses.length == 0) {
-                responses.push("There are no port settings configured.");
-            }
-            break;
-        case "volume":
-        case "volumes":
-            let volumes = session.attributes.run_settings.value.volumes;
-            for (let containerVolume in volumes) {
-                responses.push(`The container volume ${containerVolume} is mapped to the host volume ${volumes[containerVolume]}.`);
-            }
-            if (responses.length == 0) {
-                responses.push("There are no volume settings configured.");
-            }
-            break;
-        case "environement variables":
-        case "environement variable":
-            let envs = session.attributes.run_settings.value.env;
-            for (let envName in envs) {
-                responses.push(`The environement variable ${envName} has the value "${envs[envName]}".`);
-            }
-            if (responses.length == 0) {
-                responses.push("There are no environement variables set.");
-            }
-            break;
-        case "network":
-            let networkConfigured = session.attributes.run_settings.value.network;
-            if (networkConfigured) {
-                let networks = await dockerController.listNetworks();
-                let network = networks.find(n => n.Id == session.attributes.run_settings.value.networkId);
-
-                responses.push(`The container is linked to the network "${network.Name}".`);
-            } else {
-                responses.push("No network was configured for this image.");
-            }
-            break;
-        default:
-            let portResponse = await getSpecificImageSetting.call(this, session, "port");
-            let volumeResponse = await getSpecificImageSetting.call(this, session, "volume");
-            let envResponse = await getSpecificImageSetting.call(this, session, "environement variables");
-            let networksResponse = await getSpecificImageSetting.call(this, session, "network");
-
-            responses = responses.concat(portResponse, volumeResponse, envResponse, networksResponse);
-            break;
-    }
-    return responses;
-}
-
-/**
  * action_dumpSession
  * @param {*} session 
  */
 let action_dumpSession = async function(session) {
     console.log(JSON.stringify(session, null, 4));
-}
-
-/**
- * action_matchEntitiesPorts
- * @param {*} session 
- * @param {*} botResponse 
- */
-let action_matchEntitiesPorts = async function(session, botResponse) {
-    // if (botResponse && botResponse.systemEntities && botResponse.systemEntities.length > 0) {
-    //     let text = botResponse.text.toLowerCase();
-
-    //     // Filter only number types
-    //     let systemEntities = botResponse.systemEntities.filter(si => si.dimention == "number");
-
-    //     let hostPortMatch = null;
-    //     let containerPortMatch = null;
-
-    //     // Look for obvious candidates
-    //     systemEntities.forEach(systemEntity => {
-    //         if (systemEntity.dimention == "number") {
-    //             let hostCandidates = [
-    //                 `host port ${systemEntity.value}`
-    //             ];
-    //             let containerCandidates = [
-    //                 `container port ${systemEntity.value}`,
-    //                 `image port ${systemEntity.value}`
-    //             ];
-
-    //             if (hostPortMatch == null) {
-    //                 let hostCandidate = hostCandidates.find(candidate => text.indexOf(candidate) != -1);
-    //                 if (hostCandidate != null) {
-    //                     hostPortMatch = systemEntity.value;
-    //                 }
-    //             }
-    //             if (containerPortMatch == null) {
-    //                 let containerCandidate = containerCandidates.find(candidate => text.indexOf(candidate) != -1);
-    //                 if (containerCandidate != null) {
-    //                     containerPortMatch = systemEntity.value;
-    //                 }
-    //             }
-    //         }
-    //     });
-
-    //     if (systemEntities.length == 2) {
-    //         // If missing one out of two candidates, look for probable value
-    //         if (hostPortMatch != null && containerPortMatch == null) {
-    //             if (systemEntities[0].value == systemEntities[1].value) {
-    //                 containerPortMatch = systemEntities[0].value;
-    //             } else {
-    //                 systemEntities.forEach(systemEntity => {
-    //                     if (systemEntity.dimention == "number" && systemEntity.value != hostPortMatch) {
-    //                         containerPortMatch = systemEntity.value;
-    //                     }
-    //                 });
-    //             }
-    //         } else if (hostPortMatch == null && containerPortMatch != null) {
-    //             if (systemEntities[0].value == systemEntities[1].value) {
-    //                 hostPortMatch = systemEntities[0].value;
-    //             } else {
-    //                 systemEntities.forEach(systemEntity => {
-    //                     if (systemEntity.dimention == "number" && systemEntity.value != containerPortMatch) {
-    //                         hostPortMatch = systemEntity.value;
-    //                     }
-    //                 });
-    //             }
-    //         }
-    //     }
-
-    //     // Set entities if matches found
-    //     if (hostPortMatch != null) {
-    //         session.entities.host_port = hostPortMatch;
-    //     }
-    //     if (containerPortMatch != null) {
-    //         session.entities.container_port = containerPortMatch;
-    //     }
-    // }
 }
 
 /**

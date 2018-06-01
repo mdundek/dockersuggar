@@ -1,0 +1,42 @@
+[{
+        "name": "configure_network",
+        "condition": {
+            "intent": "configure_network",
+            "entities": [],
+            "attributes": []
+        },
+        "responses": ["Done. Anything else you need?"],
+        "slots": [{
+            "entity": "network_id",
+            "questions": ["Please select a network that this container should join?"],
+            "invalideResponses": ["Sorry, but I do not know this network."],
+            "action": "select_network"
+        }]
+    }, {
+        "name": "remove_configured_network",
+        "condition": {
+            "intent": "remove_configured_network",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.networkId",
+                "operator": "==",
+                "value": null
+            }]
+        },
+        "preAction": "remove_configured_network",
+        "responses": ["Done. Anything else you need?"]
+    },
+    {
+        "name": "invalide_remove_configured_network",
+        "condition": {
+            "intent": "remove_configured_network",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.networkId",
+                "operator": "!=",
+                "value": null
+            }]
+        },
+        "responses": ["There are no networks to remove."]
+    }
+]

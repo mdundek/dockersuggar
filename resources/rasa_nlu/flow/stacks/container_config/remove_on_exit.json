@@ -1,0 +1,55 @@
+[{
+        "name": "remove_on_exit",
+        "condition": {
+            "intent": "configure_removeonexit",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.remove",
+                "operator": "==",
+                "value": false
+            }]
+        },
+        "action": "set_remove_on_exit",
+        "responses": ["The container will be removed on exit, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_remove_on_exit",
+        "condition": {
+            "intent": "configure_removeonexit",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.remove",
+                "operator": "==",
+                "value": true
+            }]
+        },
+        "responses": ["The container is already configured to be removed on exit, anything else you want to configure?"]
+    },
+    {
+        "name": "dont_remove_on_exit",
+        "condition": {
+            "intent": "configure_dontremoveonexit",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.remove",
+                "operator": "==",
+                "value": true
+            }]
+        },
+        "action": "set_dont_remove_on_exit",
+        "responses": ["The container will not be removed on exit, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_dont_remove_on_exit",
+        "condition": {
+            "intent": "configure_dontremoveonexit",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.remove",
+                "operator": "==",
+                "value": false
+            }]
+        },
+        "responses": ["The container is already configured to not be removed on exit, anything else you want to configure?"]
+    }
+]

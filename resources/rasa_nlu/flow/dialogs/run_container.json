@@ -11,7 +11,7 @@
             }]
         },
         "preAction": "compute_settings_text",
-        "responses": ["Ok, @[image_name] it is.\nI will use previously used settings to run this container. Here is what I have: &[current_settings_text]\nIs there anything you wish to change?"]
+        "responses": ["Ok, @[image_name] it is.\nI will use previously used settings to run this container. Here is what I have: \n<font style=normal>&[current_settings_text]</font>\nIs there anything you wish to change?"]
     }, {
         "name": "do_configure_something",
         "condition": {
@@ -21,9 +21,25 @@
         },
         "responses": ["Just tell me what you would like to configure then."]
     }, {
-        "import": "container_configure_options"
+        "import": "container_config/detach.json"
     }, {
-        "import": "ask_about_current_settings"
+        "import": "container_config/env_variables.json"
+    }, {
+        "import": "container_config/network.json"
+    }, {
+        "import": "container_config/ports.json"
+    }, {
+        "import": "container_config/remove_on_exit.json"
+    }, {
+        "import": "container_config/shell.json"
+    }, {
+        "import": "container_config/start_cmd.json"
+    }, {
+        "import": "container_config/volumes.json"
+    }, {
+        "import": "container_config/ask_about_current_config.json"
+    }, {
+        "import": "container_config/global.json"
     }, {
         "name": "done_with_settings",
         "condition": {

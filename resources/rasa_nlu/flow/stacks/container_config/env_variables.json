@@ -1,0 +1,42 @@
+[{
+        "name": "configure_env_variable",
+        "condition": {
+            "intent": "configure_env_variable",
+            "entities": [],
+            "attributes": []
+        },
+        "slots": [{
+            "entity": "env_name",
+            "questions": ["What is the name of the environement variable?"]
+        }, {
+            "entity": "env_value",
+            "questions": ["What value should be set for @[env_name]?"]
+        }],
+        "action": "store_env_variable_configuration",
+        "responses": ["Environement variable configured, anything else you want to configure?"]
+    }, {
+        "name": "remove_configured_env_variable",
+        "condition": {
+            "intent": "remove_configured_env_variable",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.env",
+                "matcher": "has_attributes"
+            }]
+        },
+        "preAction": "remove_configured_env_variable",
+        "responses": ["Done. Anything else you need?"]
+    },
+    {
+        "name": "invalide_remove_configured_env_variable",
+        "condition": {
+            "intent": "remove_configured_env_variable",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.env",
+                "matcher": "has_no_attributes"
+            }]
+        },
+        "responses": ["There are no environement variables to remove."]
+    }
+]

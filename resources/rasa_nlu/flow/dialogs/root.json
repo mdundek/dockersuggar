@@ -43,7 +43,7 @@
                 "action": "select_image"
             }],
             "postAction": "collect_image_config",
-            "dialog": "run_container"
+            "dialog": "run_container.json"
         },
         {
             "name": "help",

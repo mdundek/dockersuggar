@@ -1,0 +1,76 @@
+[{
+        "name": "detach_container",
+        "condition": {
+            "intent": "configure_detached",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.bgMode",
+                "operator": "==",
+                "value": false
+            }, {
+                "name": "run_settings.shell",
+                "operator": "==",
+                "value": false
+            }]
+        },
+        "action": "set_detached",
+        "responses": ["The container will start in detached mode, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_detach_container",
+        "condition": {
+            "intent": "configure_detached",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.bgMode",
+                "operator": "==",
+                "value": true
+            }]
+        },
+        "responses": ["This container is already configured to start in detached mode, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_detach_container",
+        "condition": {
+            "intent": "configure_detached",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.bgMode",
+                "operator": "==",
+                "value": false
+            }, {
+                "name": "run_settings.shell",
+                "operator": "==",
+                "value": true
+            }]
+        },
+        "responses": ["The container is configured to start a shell session, therefore I can not start it in detached mode. Anything else you want to configure?"]
+    },
+    {
+        "name": "undo_detach_container",
+        "condition": {
+            "intent": "configure_foreground",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.bgMode",
+                "operator": "==",
+                "value": true
+            }]
+        },
+        "action": "set_foreground",
+        "responses": ["The container will not start detached, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_foreground_container",
+        "condition": {
+            "intent": "configure_foreground",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.bgMode",
+                "operator": "==",
+                "value": false
+            }]
+        },
+        "responses": ["The container is already configured to not start in detached mode, anything else you want to configure?"]
+    }
+]

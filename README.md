@@ -42,6 +42,7 @@ $ dockersuggar -h
 This outputs:
 
 ```
+ 
   ____             _             ____
  |  _ \  ___   ___| | _____ _ __/ ___| _   _  __ _  __ _  __ _ _ __
  | | | |/ _ \ / __| |/ / _ \ '__\___ \| | | |/ _` |/ _` |/ _` | '__|
@@ -68,25 +69,26 @@ This outputs:
 
     Local Dockerfile stuff:
 
-      dockerProjectsBasePath      Set / update the base folder path for your Dockerfile projects
-      dockerfiles | df            List local Dockerfiles
-      new | n                     Create a new Dockerfile
-      editDockerfile | ed         Edit dockerfile with default editor
+      dockerProjectsBasePath      Set / update the base folder path for your Dockerfile projects (local environement only)
+      dockerfiles | df            List local Dockerfiles (only for local environement)
+      new | n                     Create a new Dockerfile (local environement only)
+      editDockerfile | ed         Edit dockerfile with default editor (local desktop environement only)
       build | b                   Build a docker image
 
     Docker images:
 
-      images | i                  List available docker images
-      document                    Document an image such as ports, volumes and environement variables
+      images | i                  List available local docker images
+      document                    Take notes for a specific image such as ports, volumes and environement variables
       tag | t                     Tag a docker image for a repository
       pull                        Pull a docker image from a registry
+      push                        Push a docker image to repository (local environement only)
       deleteImage | di            Delete a docker image
 
     Containers:
 
       containers | c              List containers
       create                      Create a container from image
-      run | r                     Run container from image
+      run | r                     Create and run container from image
       startContainer | startc     Start a docker container
       stopContainer | stopc       Stop running docker container
       pauseContainer | pause      Pause running docker container
@@ -96,6 +98,7 @@ This outputs:
       logs | l                    Display logs for conainer
       shell                       Shell terminal into running conainer
       exec | e                    Execute command on running conainer
+      copyFiles | cf              Copy a files from a local folder path to a running container destination path
 
     Networks:
 

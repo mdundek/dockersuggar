@@ -185,7 +185,7 @@ module.exports = {
     /**
      * start
      */
-    start: async() => {
+    start: async(args) => {
         let containers = await dockerController.listContainers();
         containers = containers.filter(c => !c.up);
         if (containers.length == 0) {
@@ -211,7 +211,7 @@ module.exports = {
         let qResponses = await prompt(questions);
 
         let container = containers[parseInt(qResponses.index) - 1];
-        await dockerController.startContainer(container);
+        await dockerController.startContainer(container, args);
         console.log(chalk.grey("Done"));
     },
     /**
@@ -467,52 +467,18 @@ module.exports = {
      * pull
      */
     pull: async() => {
-        let questions = [{
-            type: 'input',
-            name: 'imageName',
-            message: 'Image to pull:',
-            validate: (data) => {
-                if (data.trim().length == 0) {
-                    return "Required";
-                } else {
-                    return true;
-                }
-            }
-        }];
-        let imagePullRequest = await prompt(questions);
+        let data = await promptRepoAuth();
 
-        await dockerController.pullImage(imagePullRequest.imageName, {});
+        await dockerController.pullImage(data.image, data.auth);
         console.log("\n" + chalk.grey("Done"));
     },
     /**
      * push
      */
     push: async() => {
-        let images = await dockerController.listImages();
-        if (images.length == 0) {
-            console.log(chalk.grey("No images found"));
-            return;
-        }
-        displayAvailableImages(images, true);
-        console.log("");
+        let data = await promptRepoAuth(true);
 
-        let questions = [{
-            type: 'input',
-            name: 'index',
-            message: 'Image to push:',
-            validate: (index) => {
-                if (validateIndexResponse(images, index)) {
-                    return true;
-                } else {
-                    return "Invalide index";
-                }
-            }
-        }];
-
-        let pushImageData = await prompt(questions);
-
-        let sImage = dockers[parseInt(pushImageData.index) - 1];
-        await dockerController.pushImage(sImage, pushImageData);
+        await dockerController.pushImage(data.localImage, data.auth);
         console.log("\n" + chalk.grey("Done"));
     },
     /**
@@ -696,12 +662,12 @@ module.exports = {
             vSettings = previousRunSettings.settings.volumes;
         } else {
             // Get exposed volumes from Dockerfile
-            let volumes = dataController.extractDockerfileVolumes(sImage);
-            if (volumes && volumes.length > 0) {
-                volumes.map(v => {
-                    vSettings[v] = v;
-                });
-            }
+            // let volumes = dataController.extractDockerfileVolumes(sImage);
+            // if (volumes && volumes.length > 0) {
+            //     volumes.map(v => {
+            //         vSettings[v] = v;
+            //     });
+            // }
         }
 
         let volResult = await promptForRepetingKeyValues({
@@ -709,7 +675,7 @@ module.exports = {
             "key": "Container volume path",
             "value": "Host volume path",
             "valuePostShort": " (Host)"
-        }, vSettings, " : ", true);
+        }, vSettings, " : ", false, true);
         runImageData.volumes = volResult;
 
         // ************************************************************
@@ -1041,7 +1007,7 @@ module.exports = {
             "key": "Container volume path",
             "value": "Host volume path",
             "valuePostShort": " (Host)"
-        }, vSettings, " : ", true);
+        }, vSettings, " : ", false, true);
         runImageData.volumes = volResult;
 
         // ************************************************************
@@ -1210,6 +1176,66 @@ module.exports = {
         let bashContainer = containers[parseInt(qData.index) - 1];
         await dockerController.containerLogs(bashContainer, qData);
     },
+
+
+    /**
+     * copyFileToContainer
+     */
+    copyFileToContainer: async() => {
+        let containers = await dockerController.listContainers();
+        containers = containers.filter(c => c.up);
+
+        displayAvailableContainers(containers, true);
+        console.log("");
+
+        let questions = [{
+            type: 'input',
+            name: 'index',
+            message: 'Container to copy a file into:',
+            validate: (index) => {
+                if (validateIndexResponse(containers, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }, {
+            type: 'input',
+            name: 'folder',
+            message: 'Enter local folder path that contains the files to copy into the container:',
+            validate: (path) => {
+                if (path.trim().length == 0) {
+                    return "Required";
+                } else if (!fs.existsSync(path)) {
+                    return "Invalide path";
+                } else {
+                    if (fs.statSync(path).isDirectory()) {
+                        return true;
+                    } else {
+                        return "Source file needs to be a directory";
+                    }
+                }
+            }
+        }, {
+            type: 'input',
+            name: 'destination',
+            message: 'Enter container target directory path:',
+            validate: (path) => {
+                if (path.trim().length == 0) {
+                    return "Required";
+                }
+                return true;
+            }
+        }];
+
+        let containerData = await prompt(questions);
+
+        let container = containers[parseInt(containerData.index) - 1];
+        await dockerController.copyFileToContainer(container, containerData.folder, containerData.destination);
+        console.log(chalk.grey("Done"));
+    },
+
+
     /**
      * execInContainer
      */
@@ -1311,7 +1337,7 @@ module.exports = {
             "intro": "Volume mapping",
             "key": "Container volume path",
             "value": "Details"
-        }, previousConfig.config.volumes ? previousConfig.config.volumes : {}, " => ", false);
+        }, previousConfig.config.volumes ? previousConfig.config.volumes : {}, " => ", false, true);
 
         let envResult = await promptForRepetingKeyValues({
             "intro": "Environement variables",
@@ -1353,6 +1379,18 @@ module.exports = {
             type: 'input',
             name: 'name',
             message: 'Network name:'
+        }, {
+            type: 'input',
+            name: 'subnet',
+            message: 'Subnet (Optional):'
+        }, {
+            type: 'input',
+            name: 'iprange',
+            message: 'IP Range (Optional):'
+        }, {
+            type: 'input',
+            name: 'gateway',
+            message: 'Gateway (Optional):'
         }];
 
         let networkData = await prompt(questions);
@@ -1603,8 +1641,6 @@ module.exports = {
                 validate: (path) => {
                     if (path.trim().length == 0) {
                         return "Required";
-                    } else if (!fs.existsSync(path)) {
-                        return "Invalide path";
                     } else {
                         return true;
                     }
@@ -1616,8 +1652,6 @@ module.exports = {
                 validate: (path) => {
                     if (path.trim().length == 0) {
                         return "Required";
-                    } else if (!fs.existsSync(path)) {
-                        return "Invalide path";
                     } else {
                         return true;
                     }
@@ -1629,8 +1663,6 @@ module.exports = {
                 validate: (path) => {
                     if (path.trim().length == 0) {
                         return "Required";
-                    } else if (!fs.existsSync(path)) {
-                        return "Invalide path";
                     } else {
                         return true;
                     }
@@ -1696,7 +1728,7 @@ module.exports = {
  * @param {*} labels 
  * @param {*} existingList 
  */
-let promptForRepetingKeyValues = async(labels, existingList, separator, invert) => {
+let promptForRepetingKeyValues = async(labels, existingList, separator, invert, valueIsOptional) => {
     return new Promise((resolve, reject) => {
         console.log("");
         console.log(chalk.yellow(labels.intro + ":"));
@@ -1710,11 +1742,12 @@ let promptForRepetingKeyValues = async(labels, existingList, separator, invert) 
             for (let e in currentList) {
                 if (invert) {
                     console.log(
-                        chalk.cyan(
-                            (labels.valueShort ? labels.valueShort : "") +
-                            currentList[e] +
-                            (labels.valuePostShort ? labels.valuePostShort : "")
-                        ) +
+                        (currentList[e].length > 0 ? (
+                            chalk.cyan(
+                                (labels.valueShort ? labels.valueShort : "") +
+                                currentList[e] +
+                                (labels.valuePostShort ? labels.valuePostShort : "")
+                            )) : "") +
                         (separator ? separator : "=") +
                         chalk.cyan(
                             (labels.keyShort ? labels.keyShort : "") +
@@ -1729,12 +1762,14 @@ let promptForRepetingKeyValues = async(labels, existingList, separator, invert) 
                             e +
                             (labels.keyPostShort ? labels.keyPostShort : "")
                         ) +
-                        (separator ? separator : "=") +
-                        chalk.cyan(
-                            (labels.valueShort ? labels.valueShort : "") +
-                            currentList[e] +
-                            (labels.valuePostShort ? labels.valuePostShort : "")
-                        )
+                        (currentList[e].length > 0 ? (
+                            (separator ? separator : "=") +
+                            chalk.cyan(
+                                (labels.valueShort ? labels.valueShort : "") +
+                                currentList[e] +
+                                (labels.valuePostShort ? labels.valuePostShort : "")
+                            )
+                        ) : "")
                     );
                 }
             }
@@ -1759,7 +1794,7 @@ let promptForRepetingKeyValues = async(labels, existingList, separator, invert) 
                             name: 'value',
                             message: labels.value,
                             validate: (res) => {
-                                return res.trim().length == 0 ? "Mandatory field" : true
+                                return valueIsOptional || (res.trim().length == 0 ? "Mandatory field" : true)
                             }
                         }];
 
@@ -2141,6 +2176,117 @@ let displayInspectData = (target, data) => {
         }
     } else {
         console.log(data);
+    }
+}
+
+/**
+ * 
+ */
+let promptRepoAuth = async(selectLocal) => {
+    let questions = [];
+
+    let localImage = null;
+    if (selectLocal) {
+        let images = await dockerController.listImages();
+        if (images.length == 0) {
+            console.log(chalk.grey("No images found"));
+            return;
+        }
+        displayAvailableImages(images, true);
+        console.log("");
+
+        let imgAnswer = await prompt([{
+            type: 'input',
+            name: 'index',
+            message: 'Select image:',
+            validate: (index) => {
+                if (validateIndexResponse(images, index)) {
+                    return true;
+                } else {
+                    return "Invalide index";
+                }
+            }
+        }]);
+        localImage = images[parseInt(imgAnswer.index) - 1];
+    } else {
+        questions.push({
+            type: 'input',
+            name: 'imageName',
+            message: 'Image / repo name (append tag if not latest):',
+            validate: (data) => {
+                if (data.trim().length == 0) {
+                    return "Required";
+                } else {
+                    return true;
+                }
+            }
+        });
+    }
+
+    let answer = await prompt([{
+        type: 'list',
+        name: 'privateRepo',
+        message: "Are you using a private repo?",
+        choices: ['Yes', 'No'],
+        default: 'No'
+    }]);
+
+    if (answer.privateRepo == "Yes") {
+        questions.push({
+            type: 'input',
+            name: 'username',
+            message: 'User name:',
+            validate: (data) => {
+                if (data.trim().length == 0) {
+                    return "Required";
+                } else {
+                    return true;
+                }
+            }
+        });
+
+        questions.push({
+            type: 'input',
+            name: 'password',
+            message: 'Password:',
+            validate: (data) => {
+                if (data.trim().length == 0) {
+                    return "Required";
+                } else {
+                    return true;
+                }
+            }
+        });
+    }
+
+    let repoAnswers = await prompt(questions);
+
+    let params = {};
+    if (answer.privateRepo == "Yes") {
+        let registry = null;
+        if (!localImage) {
+            let registrySplitIndex = repoAnswers.imageName.lastIndexOf("/");
+            if (registrySplitIndex != -1) {
+                registry = repoAnswers.imageName.substring(0, registrySplitIndex);
+                params.serveraddress = "https://" + registry + "/v2";
+            }
+        }
+
+        params.username = repoAnswers.username;
+        params.password = repoAnswers.password;
+        params.auth = '';
+    }
+
+    if (localImage) {
+        return {
+            "auth": params,
+            "localImage": localImage
+        }
+    } else {
+        return {
+            "image": repoAnswers.imageName,
+            "auth": params
+        }
     }
 }
 

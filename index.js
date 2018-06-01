@@ -12,7 +12,7 @@ var chalk = require("chalk");
 var figlet = require('figlet');
 
 program
-    .version('0.1.4')
+    .version('0.2.1')
     .description("\n" + figlet.textSync('DockerSuggar'))
     .option('-r, --remote <name>', 'Execute command on a remote docker instance');
 
@@ -91,8 +91,12 @@ program
 program
     .command('dockerProjectsBasePath')
     .section("Local Dockerfile stuff:")
-    .description('Set / update the base folder path for your Dockerfile projects')
+    .description('Set / update the base folder path for your Dockerfile projects (local environement only)')
     .action(() => {
+        // if(program.remote) {
+        //     console.log(chalk.red("ERROR: "), "This command is not designed to work with ");
+        //     process.exit(1);
+        // }
         cmdValue = "dockerProjectsBasePath";
         (async() => {
             try {
@@ -107,7 +111,7 @@ program
 program
     .command('dockerfiles')
     .alias('df')
-    .description('List local Dockerfiles')
+    .description('List local Dockerfiles (only for local environement)')
     .action(() => {
         cmdValue = "dockerfiles";
         (async() => {
@@ -127,7 +131,7 @@ program
 program
     .command('new')
     .alias('n')
-    .description('Create a new Dockerfile')
+    .description('Create a new Dockerfile (local environement only)')
     .action(() => {
         cmdValue = "new";
         (async() => {
@@ -145,7 +149,7 @@ program
 program
     .command('editDockerfile')
     .alias('ed')
-    .description('Edit dockerfile with default editor')
+    .description('Edit dockerfile with default editor (local desktop environement only)')
     .action(() => {
         cmdValue = "editDockerfile";
         (async() => {
@@ -185,7 +189,7 @@ program
     .command('images')
     .section("Docker images:")
     .alias('i')
-    .description('List available docker images')
+    .description('List available local docker images')
     .action((options) => {
         cmdValue = "images";
         (async() => {
@@ -203,7 +207,7 @@ program
 
 program
     .command('document')
-    .description('Document an image such as ports, volumes and environement variables')
+    .description('Take notes for a specific image such as ports, volumes and environement variables')
     .action(() => {
         cmdValue = "describe";
         (async() => {
@@ -253,24 +257,27 @@ program
         })();
     });
 
-// program
-//     .command('push')
-//     .alias('p')
-//     .description('Push a docker image to repository')
-//     .action(() => {
-//         cmdValue = "push";
-//         (async() => {
-// try {
-// await init(program);
-// console.log("");
-//             try {
-//                 await promptController.push();
-//             } catch (e) {
-//                 console.log("");
-//                 console.log(e.message);
-//             }
-//         })();
-//     });
+program
+    .command('push')
+    .description('Push a docker image to repository (local environement only)')
+    .action(() => {
+        cmdValue = "push";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                try {
+                    await promptController.push();
+                } catch (e) {
+                    console.log("");
+                    console.log(e.message);
+                }
+            } catch (e) {
+                console.log("");
+                console.log(chalk.red("ERROR: "), e.message);
+            }
+        })();
+    });
 
 program
     .command('deleteImage')
@@ -334,7 +341,7 @@ program
 program
     .command('run')
     .alias('r')
-    .description('Run container from image')
+    .description('Create and run container from image')
     .action(() => {
         cmdValue = "run";
         (async() => {
@@ -355,13 +362,13 @@ program
     .command('startContainer')
     .alias('startc')
     .description('Start a docker container')
-    .action(() => {
+    .action((args) => {
         cmdValue = "startContainer";
         (async() => {
             try {
                 await init(program);
                 console.log("");
-                await promptController.start();
+                await promptController.start(args);
             } catch (e) {
                 console.log("");
                 console.log(chalk.red("ERROR: "), e.message);
@@ -525,6 +532,26 @@ program
         })();
     });
 
+
+program
+    .command('copyFiles')
+    .alias('cf')
+    .description('Copy a files from a local folder path to a running container destination path')
+    .action(() => {
+        cmdValue = "copyFile";
+        (async() => {
+            try {
+                await init(program);
+                console.log("");
+                await promptController.copyFileToContainer();
+                process.exit(0);
+            } catch (e) {
+                console.log("");
+                console.log(chalk.red("ERROR: "), e.message);
+            }
+        })();
+    });
+
 /**
  * COMMANDS: NETWORKS 
  */
@@ -675,7 +702,7 @@ program
             try {
                 await init(program);
 
-                dataController.deleteModelData();
+                // dataController.deleteModelData();
                 await rasaController.installAndSetupRasa();
 
                 let ducklingIp = await dockerController.getNetworkContainerIp("rasa_network", "dockersuggar_rasa_duckling");
@@ -706,7 +733,7 @@ program
                 await init(program);
                 // Experimental NLU Chatbot
                 await rasaController.init();
-                chatController.init();
+                await chatController.init();
                 // process.exit(0);
             } catch (e) {
                 console.log("");

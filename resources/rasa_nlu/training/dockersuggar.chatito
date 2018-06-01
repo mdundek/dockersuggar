@@ -50,6 +50,7 @@
     I am done
     I am finished
     All good
+    Done
     No, I am finished
     No, I am done
     No, that's it
@@ -110,6 +111,13 @@
     What @[setting_type] did I map
     What @[setting_type] did I declare
     What @[setting_type] are declared
+    What @[setting_type] was set
+    What @[setting_type] was declared
+    What are the @[setting_type] settings 
+    What are the configured @[setting_type]?
+    What @[setting_type] is set
+    Tell me what @[setting_type] are set
+    What @[setting_type] is declared
     What are the @[setting_type] available
     What was the @[setting_type] again
     Can you show me those settings
@@ -123,12 +131,18 @@
     I want to change the port mapping
     Let's change the port
     I need a different port
+    I need to configure a port
     Let's use a different port
     I want to map a port
+    I need to map a port
+    I want to expose a container port
+    Expose a port
     Map an exposed port
+    Expose container port @[container_port] to host port @[host_port]
     Bind container port @[container_port] to host port @[host_port]
     Map container port @[container_port] to host port @[host_port]
     I want to map container port @[container_port] to host port @[host_port]
+    Bind host port @[host_port] to exposed container port @[container_port]
     Bind host port @[host_port] to container port @[container_port]
     Map host port @[host_port] to container port @[container_port]
     I want to map host port @[host_port] to container port @[container_port]
@@ -136,20 +150,196 @@
     Map host port @[host_port] to port @[container_port]
     I want to map host port @[host_port] to port @[container_port]
     Bind container port @[container_port] to port @[host_port]
+    Expose container port @[container_port] to port @[host_port]
     Map container port @[container_port] to port @[host_port]
     I want to map container port @[container_port] to port @[host_port]
     Bind port @[container_port] to host port @[host_port]
+    Expose port @[container_port] to host port @[host_port]
     Map port @[container_port] to port @[host_port]
     I want to map port @[container_port] to port @[host_port]
     Bind port @[container_port]
+    Expose port @[container_port]
     Map port @[container_port]
     I want to map port @[container_port]
     Bind host port @[host_port]
     Map host port @[host_port]
     I want to map host port @[host_port]
     Bind container port @[container_port]
+    Expose container port @[container_port]
     Map container port @[container_port]
     I want to map container port @[container_port]
+
+%[configure_volume]
+    Actually I would like to map a different volume
+    I want to change the volume mapping
+    Let's map a volume
+    I need a different volume
+    Let's use a different volume
+    I want to map a volume
+    I need to map a volume
+    Map a volume
+    Assign a volume to a host volume
+    Mount a volume
+    I want to mount a volume
+    Let's mount a volume
+    Mount a container volume to the host
+
+%[remove_configured_volume]
+    Actually I would like to remove a volume
+    I want to remove a volume mapping
+    Let's remove a volume
+    I need to delete a volume
+    Let's undo a mapped volume
+    I want to unmap a volume
+    I need to undo a volume mapping
+    Unmap a volume
+    Unassign a volume that is mapped to a host volume
+    Unmap a volume from the container please
+    Unmount a volume
+    I want to unmount a volume
+    Let's unmount a volume
+    Unmount a container volume
+
+%[configure_network]
+    Attach to a network
+    Attach this container to a network
+    Add this container to a network
+    Join a network
+    I want to join a network
+    I want to configure a network
+    Connect to a network
+    Connect the container to the test network
+
+%[remove_configured_network]
+    Remove from a network
+    Disconnect from network
+    Detach this container from the network
+    Remove this container from the network
+    I want to diconnect from the network
+    Please diconnect from all networks
+
+%[remove_configured_env_variable]
+    Remove a environement variable
+    Remove an environement variable
+    Unset a environement variable
+    I want to remove a configured environement variable
+    Undo a set environement variable
+    Remove a specific environement variable from the configuration
+
+%[remove_configured_port]
+    Actually I would like to unbind a port
+    I want to remove a port mapping
+    Let's remove the port
+    I need to remove ports
+    Let's not expose a port
+    I want to unmap a port
+    I need to unexpose a port
+    I want to not expose a container port
+    Remove a port mapping
+    Please remove a port setting
+    Remove an exposed port
+    Unmap an exposed port
+    Remove expose container port
+    Unmap exposed container port @[container_port] from the host
+    Unbind container port @[container_port]
+    Unmap container port @[container_port]
+    I want to unmap container port @[container_port]
+    Unbind host port @[host_port]
+    Remove exposed post from host port @[host_port]
+    Unmap host port @[host_port] from container port @[container_port]
+    I want to unmap host port @[host_port] from this container
+    Unmap host port @[host_port]
+    I want to unmap host port @[host_port] from container
+    Unbind container port @[container_port] from exposed container port
+    Remove expose container port @[container_port]
+
+%[configure_env_variable]
+    Declare an environement variable
+    Change an environement variable
+    Set a environement variable
+    I want to set an environement variable
+    Pass an environement variable to the container
+    Define an environement variable
+
+%[configure_detached]
+    I would like to run this container in detached mode
+    Run in detached mode
+    Detach this container
+    Detach the container
+    Detach container
+    Run the container in the background
+    Detach the container
+    Run the container in detached mode
+    Set the container to start as detached
+
+%[configure_foreground]
+    Don't run this container in detached mode
+    Don't run in detached mode
+    Don't detach this container
+    Do not send the container to the background
+    Do not detach container
+    Run the container in the foreground
+    Start in foreground mode
+    Start the container in foreground
+    Start the container in the foreground
+    Run container in foreground
+    Start the container in foreground mode
+
+%[configure_removeonexit]
+    Remove the container on exit
+    Kill container on exit
+    Remove the container when done
+    Remove on exit
+    Destroy the container when done
+
+%[configure_dontremoveonexit]
+    Don't remove the container on exit
+    Don't kill container on exit
+    Do not remove the container when done
+    Do not remove on exit
+    Keep the container alive
+    Don't destroy the containerwhen done
+
+%[configure_shell]
+    I would like to shell into the container
+    Bash into the container on start
+    Start a shell
+    Log in the container
+    Start a bash session
+
+%[no_shell]
+    Don't shell into the container
+    Do not bash into the container on start
+    Do not start a shell
+    Do not log in the container
+    Dont start a shell
+    No bash session please
+
+%[set_startcommand]
+    I would like to overwrite the startup command
+    I would like to set a command
+    Please set a command on startup
+    I need to change the startup command
+    Execute a command on startup
+    Set the container command
+    I want to set a different container command
+    Let's change the default command
+    Yes, set a custom command for this container please
+    Set a command
+    Set command
+
+%[undo_setcommand]
+    Undo the command I set
+    Please remove the command
+    Set the default command back please
+    Don't overwrite the command
+    Go back to the default command
+    Remove that command
+    Remove this command
+    Dont run a command
+    No command on startup please
+    Don't run a command on startup
+    Do not run a command
 
 %[help]
     I need help
@@ -180,20 +370,15 @@
     environement variables
     environement variable
     detached
+    command
+    commands
+    cmd
 
 @[container_port]
     1111
-    1234
-    45687
-    69874
-    8796
 
 @[host_port]
     1111
-    1234
-    45687
-    69874
-    8796
 
 ~[elastic]
     elasticsearch

@@ -60,7 +60,7 @@ exports.IMAGE_BASE_DIR = "images"; // Will be overwritten by promptController.js
 exports.init = () => {
     return new Promise((resolve, reject) => {
         try {
-            fse.copySync(path.join(__basedir, "resources/rasa_nlu/projects"), this.NLU_PROJECT_FOLDER);
+            // fse.copySync(path.join(__basedir, "resources/rasa_nlu/projects"), this.NLU_PROJECT_FOLDER);
             if (process.env.TEST) {
                 setTimeout(() => {
                     resolve();
@@ -99,10 +99,10 @@ exports.setBaseImagesPath = (fpath) => {
 /**
  * deleteModelData
  */
-exports.deleteModelData = () => {
-    fse.removeSync(this.NLU_PROJECT_DOCKERSUGGAR_TS_FOLDER);
-    fse.removeSync(this.NLU_PROJECT_DOCKERSUGGAR_SP_FOLDER);
-};
+// exports.deleteModelData = () => {
+//     fse.removeSync(this.NLU_PROJECT_DOCKERSUGGAR_TS_FOLDER);
+//     fse.removeSync(this.NLU_PROJECT_DOCKERSUGGAR_SP_FOLDER);
+// };
 
 /**
  * getLocalDokerFiles

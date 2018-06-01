@@ -1,0 +1,96 @@
+[{
+        "name": "shell_on_start",
+        "condition": {
+            "intent": "configure_shell",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.shell",
+                "operator": "==",
+                "value": false
+            }, {
+                "name": "run_settings.cmd",
+                "operator": "==",
+                "value": null
+            }, {
+                "name": "run_settings.bgMode",
+                "operator": "==",
+                "value": false
+            }]
+        },
+        "action": "set_run_shell",
+        "responses": ["The container will start a shell, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_shell_on_start",
+        "condition": {
+            "intent": "configure_shell",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.shell",
+                "operator": "==",
+                "value": true
+            }]
+        },
+        "responses": ["This container is already configured to start a shell, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_shell_on_start",
+        "condition": {
+            "intent": "configure_shell",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.shell",
+                "operator": "==",
+                "value": false
+            }, {
+                "name": "run_settings.cmd",
+                "matcher": "array_not_empty"
+            }]
+        },
+        "responses": ["There is already a command set to run on startup, therefore it is not possible to start a shell session. Anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_shell_on_start",
+        "condition": {
+            "intent": "configure_shell",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.shell",
+                "operator": "==",
+                "value": false
+            }, {
+                "name": "run_settings.bgMode",
+                "operator": "==",
+                "value": true
+            }]
+        },
+        "responses": ["The container will start detached, therefore it is impossible to start a shell session. Anything else you want to configure?"]
+    },
+    {
+        "name": "undo_shell_on_start",
+        "condition": {
+            "intent": "no_shell",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.shell",
+                "operator": "==",
+                "value": true
+            }]
+        },
+        "action": "set_no_shell",
+        "responses": ["The container will not start a shell, anything else you want to configure?"]
+    },
+    {
+        "name": "invalide_undo_shell_on_start",
+        "condition": {
+            "intent": "no_shell",
+            "entities": [],
+            "attributes": [{
+                "name": "run_settings.shell",
+                "operator": "==",
+                "value": false
+            }]
+        },
+        "responses": ["The container is not set to run a shell, anything else you want to configure?"]
+    }
+]
